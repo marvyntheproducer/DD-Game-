@@ -5,7 +5,9 @@ const {assetResponse,safeBounds}=require('./assets.cjs');
 const GAME='drift://game/index.html';
 protocol.registerSchemesAsPrivileged([{scheme:'drift',privileges:{standard:true,secure:true,supportFetchAPI:true,stream:true}}]);
 app.setName('Drift Drive');
-app.setPath('userData',path.join(app.getPath('appData'),'Drift Drive'));
+const profile=path.join(app.getPath('appData'),'Drift Drive');
+fs.mkdirSync(profile,{recursive:true});
+app.setPath('userData',profile);
 let win;
 const stateFile=path.join(app.getPath('userData'),'window.json');
 function readState(){try{return safeBounds(JSON.parse(fs.readFileSync(stateFile,'utf8')));}catch{return safeBounds();}}
