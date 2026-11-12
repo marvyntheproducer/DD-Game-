@@ -1,6 +1,6 @@
 const path=require('node:path');
 const fs=require('node:fs/promises');
-const MIME={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json','.ogg':'audio/ogg','.wav':'audio/wav','.png':'image/png','.txt':'text/plain; charset=utf-8','.md':'text/plain; charset=utf-8'};
+const MIME={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json','.ogg':'audio/ogg','.wav':'audio/wav','.mp3':'audio/mpeg','.png':'image/png','.txt':'text/plain; charset=utf-8','.md':'text/plain; charset=utf-8'};
 function resolveAsset(root,address){
  const url=new URL(address);
  if(url.protocol!=='drift:'||url.host!=='game'||url.username||url.password)throw new Error('Invalid game origin');

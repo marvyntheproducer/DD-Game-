@@ -1,0 +1,346 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index cb574b8..3399a18 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -314,8 +314,8 @@ if (PIRANHA_ENABLED)
+     )
+ 
+     target_link_libraries(engine-sim-exporter
+-        engine-sim
+-        engine-sim-script-interpreter)
++        engine-sim-script-interpreter
++        engine-sim)
+ 
+     target_include_directories(engine-sim-exporter
+         PUBLIC
+diff --git a/include/combustion_chamber.h b/include/combustion_chamber.h
+index 51d577d..f6e562d 100644
+--- a/include/combustion_chamber.h
++++ b/include/combustion_chamber.h
+@@ -13,9 +13,9 @@ class Engine;
+ class CombustionChamber : public atg_scs::ForceGenerator {
+     public:
+         struct Parameters {
+-            Piston *Piston;
++            ::Piston *Piston;
+             CylinderHead *Head;
+-            Fuel *Fuel;
++            ::Fuel *Fuel;
+             Function *MeanPistonSpeedToTurbulence;
+ 
+             double StartingPressure;
+diff --git a/include/constants.h b/include/constants.h
+index 8b39b44..0c81b9f 100644
+--- a/include/constants.h
++++ b/include/constants.h
+@@ -3,10 +3,10 @@
+ 
+ namespace constants {
+ 
+-    extern constexpr double pi = 3.14159265359;
+-    extern constexpr double R = 8.31446261815324;
+-    extern constexpr double root_2 = 1.41421356237309504880168872420969807856967187537694807317667973799;
+-    extern constexpr double e = 2.71828182845904523536028747135266249775724709369995;
++    inline constexpr double pi = 3.14159265359;
++    inline constexpr double R = 8.31446261815324;
++    inline constexpr double root_2 = 1.41421356237309504880168872420969807856967187537694807317667973799;
++    inline constexpr double e = 2.71828182845904523536028747135266249775724709369995;
+ 
+ } /* namespace Constants */
+ 
+diff --git a/include/cylinder_head.h b/include/cylinder_head.h
+index 0d40413..f29b2f5 100644
+--- a/include/cylinder_head.h
++++ b/include/cylinder_head.h
+@@ -18,7 +18,7 @@ class CylinderHead : public Part {
+             Function *ExhaustPortFlow;
+             Function *IntakePortFlow;
+ 
+-            Valvetrain *Valvetrain;
++            ::Valvetrain *Valvetrain;
+ 
+             double CombustionChamberVolume;
+ 
+diff --git a/include/gas_system.h b/include/gas_system.h
+index 29f674d..ccdb502 100644
+--- a/include/gas_system.h
++++ b/include/gas_system.h
+@@ -10,9 +10,8 @@
+ class GasSystem {
+     public:
+         struct Mix {
+-            double p_fuel = 0.0;
+-            double p_inert = 1.0;
+-            double p_o2 = 0.0;
++            double p_fuel, p_inert, p_o2;
++            Mix(double fuel=0.0,double inert=1.0,double o2=0.0):p_fuel(fuel),p_inert(inert),p_o2(o2){}
+         };
+ 
+         struct State {
+diff --git a/include/units.h b/include/units.h
+index 291e3ca..6b35182 100644
+--- a/include/units.h
++++ b/include/units.h
+@@ -5,93 +5,93 @@
+ 
+ namespace units {
+     // Force
+-    extern constexpr double N = 1.0;
++    inline constexpr double N = 1.0;
+ 
+-    extern constexpr double lbf = N * 4.44822;
++    inline constexpr double lbf = N * 4.44822;
+ 
+     // Mass
+-    extern constexpr double kg = 1.0;
+-    extern constexpr double g = kg / 1000.0;
++    inline constexpr double kg = 1.0;
++    inline constexpr double g = kg / 1000.0;
+ 
+-    extern constexpr double lb = 0.45359237 * kg;
++    inline constexpr double lb = 0.45359237 * kg;
+ 
+     // Distance
+-    extern constexpr double m = 1.0;
+-    extern constexpr double cm = m / 100.0;
+-    extern constexpr double mm = m / 1000.0;
+-    extern constexpr double km = m * 1000.0;
++    inline constexpr double m = 1.0;
++    inline constexpr double cm = m / 100.0;
++    inline constexpr double mm = m / 1000.0;
++    inline constexpr double km = m * 1000.0;
+ 
+-    extern constexpr double inch = cm * 2.54;
+-    extern constexpr double foot = inch * 12.0;
+-    extern constexpr double thou = inch / 1000.0;
+-    extern constexpr double mile = m * 1609.344;
++    inline constexpr double inch = cm * 2.54;
++    inline constexpr double foot = inch * 12.0;
++    inline constexpr double thou = inch / 1000.0;
++    inline constexpr double mile = m * 1609.344;
+ 
+     // Time
+-    extern constexpr double sec = 1.0;
+-    extern constexpr double minute = 60 * sec;
+-    extern constexpr double hour = 60 * minute;
++    inline constexpr double sec = 1.0;
++    inline constexpr double minute = 60 * sec;
++    inline constexpr double hour = 60 * minute;
+ 
+     // Torque
+-    extern constexpr double Nm = N * m;
+-    extern constexpr double ft_lb = foot * lbf;
++    inline constexpr double Nm = N * m;
++    inline constexpr double ft_lb = foot * lbf;
+ 
+     // Power
+-    extern constexpr double W = Nm / sec;
+-    extern constexpr double kW = W * 1000.0;
+-    extern constexpr double hp = 745.699872 * W;
++    inline constexpr double W = Nm / sec;
++    inline constexpr double kW = W * 1000.0;
++    inline constexpr double hp = 745.699872 * W;
+ 
+     // Volume
+-    extern constexpr double m3 = 1.0;
+-    extern constexpr double cc = cm * cm * cm;
+-    extern constexpr double mL = cc;
+-    extern constexpr double L = mL * 1000.0;
+-    extern constexpr double cubic_feet = foot * foot * foot;
+-    extern constexpr double cubic_inches = inch * inch * inch;
+-    extern constexpr double gal = 3.785411784 * L;
++    inline constexpr double m3 = 1.0;
++    inline constexpr double cc = cm * cm * cm;
++    inline constexpr double mL = cc;
++    inline constexpr double L = mL * 1000.0;
++    inline constexpr double cubic_feet = foot * foot * foot;
++    inline constexpr double cubic_inches = inch * inch * inch;
++    inline constexpr double gal = 3.785411784 * L;
+ 
+     // Molecular
+-    extern constexpr double mol = 1.0;
+-    extern constexpr double kmol = mol / 1000.0;
+-    extern constexpr double mmol = mol / 1000000.0;
+-    extern constexpr double lbmol = mol * 453.59237;
++    inline constexpr double mol = 1.0;
++    inline constexpr double kmol = mol / 1000.0;
++    inline constexpr double mmol = mol / 1000000.0;
++    inline constexpr double lbmol = mol * 453.59237;
+ 
+     // Flow-rate (moles)
+-    extern constexpr double mol_per_sec = mol / sec;
+-    extern constexpr double scfm = 0.002641 * lbmol / minute;
++    inline constexpr double mol_per_sec = mol / sec;
++    inline constexpr double scfm = 0.002641 * lbmol / minute;
+ 
+     // Area
+-    extern constexpr double m2 = 1.0;
+-    extern constexpr double cm2 = cm * cm;
++    inline constexpr double m2 = 1.0;
++    inline constexpr double cm2 = cm * cm;
+ 
+     // Pressure
+-    extern constexpr double Pa = 1.0;
+-    extern constexpr double kPa = Pa * 1000.0;
+-    extern constexpr double MPa = Pa * 1000000.0;
+-    extern constexpr double atm = 101.325 * kPa;
++    inline constexpr double Pa = 1.0;
++    inline constexpr double kPa = Pa * 1000.0;
++    inline constexpr double MPa = Pa * 1000000.0;
++    inline constexpr double atm = 101.325 * kPa;
+ 
+-    extern constexpr double mbar = Pa * 100.0;
+-    extern constexpr double bar = mbar * 1000.0;
++    inline constexpr double mbar = Pa * 100.0;
++    inline constexpr double bar = mbar * 1000.0;
+ 
+-    extern constexpr double psi = lbf / (inch * inch);
+-    extern constexpr double psig = psi;
+-    extern constexpr double inHg = Pa * 3386.3886666666713;
+-    extern constexpr double inH2O = inHg * 0.0734824;
++    inline constexpr double psi = lbf / (inch * inch);
++    inline constexpr double psig = psi;
++    inline constexpr double inHg = Pa * 3386.3886666666713;
++    inline constexpr double inH2O = inHg * 0.0734824;
+ 
+     // Temperature
+-    extern constexpr double K = 1.0;
+-    extern constexpr double K0 = 273.15;
+-    extern constexpr double C = K;
+-    extern constexpr double F = (5.0 / 9.0) * K;
+-    extern constexpr double F0 = -459.67;
++    inline constexpr double K = 1.0;
++    inline constexpr double K0 = 273.15;
++    inline constexpr double C = K;
++    inline constexpr double F = (5.0 / 9.0) * K;
++    inline constexpr double F0 = -459.67;
+ 
+     // Energy
+-    extern constexpr double J = 1.0;
+-    extern constexpr double kJ = J * 1000;
+-    extern constexpr double MJ = J * 1000000;
++    inline constexpr double J = 1.0;
++    inline constexpr double kJ = J * 1000;
++    inline constexpr double MJ = J * 1000000;
+ 
+     // Angles
+-    extern constexpr double rad = 1.0;
+-    extern constexpr double deg = rad * (constants::pi / 180);
++    inline constexpr double rad = 1.0;
++    inline constexpr double deg = rad * (constants::pi / 180);
+ 
+     // Conversions
+     inline constexpr double distance(double v, double unit) {
+diff --git a/scripting/include/channel_types.h b/scripting/include/channel_types.h
+index 950dcd3..07ecaf7 100644
+--- a/scripting/include/channel_types.h
++++ b/scripting/include/channel_types.h
+@@ -29,13 +29,13 @@ namespace es_script {
+ 
+     template <typename Type>
+     extern inline const piranha::ChannelType *LookupChannelType() {
+-        static_assert(false, "Invalid type lookup");
++        static_assert(sizeof(Type)==0, "Invalid type lookup");
+         return nullptr;
+     }
+ 
+ #define ASSIGN_CHANNEL_TYPE(type, channel) \
+     class type; \
+-    template <> extern inline const piranha::ChannelType *LookupChannelType<type>() { \
++    template <> inline const piranha::ChannelType *LookupChannelType<type>() { \
+         return &ObjectChannel::channel; \
+     }
+ 
+diff --git a/scripting/include/object_reference_node.h b/scripting/include/object_reference_node.h
+index 800d912..e9a14e4 100644
+--- a/scripting/include/object_reference_node.h
++++ b/scripting/include/object_reference_node.h
+@@ -18,9 +18,9 @@ namespace es_script {
+             /* void */
+         }
+ 
+-        template <typename Type>
++        template <typename OverrideType>
+         void overrideType() {
+-            m_output.overrideType(LookupChannelType<Type>());
++            m_output.overrideType(LookupChannelType<OverrideType>());
+         }
+ 
+     protected:
+diff --git a/src/audio_export_main.cpp b/src/audio_export_main.cpp
+index d73e591..3740249 100644
+--- a/src/audio_export_main.cpp
++++ b/src/audio_export_main.cpp
+@@ -45,6 +45,7 @@ struct LoadedSimulation {
+     Vehicle *vehicle = nullptr;
+     Transmission *transmission = nullptr;
+     Simulator *simulator = nullptr;
++    double rpmSum=0,rpmMin=1e9,rpmMax=0;int rpmFrames=0;
+ };
+ 
+ struct ClipManifestRow {
+@@ -508,6 +509,7 @@ LoadedSimulation loadSimulation(const std::filesystem::path &scriptPath) {
+     audioParams.inputSampleNoise = static_cast<float>(loaded.engine->getInitialJitter());
+     audioParams.airNoise = static_cast<float>(loaded.engine->getInitialNoise());
+     audioParams.dF_F_mix = static_cast<float>(loaded.engine->getInitialHighFrequencyGain());
++    audioParams.levelerTarget=6500;
+     loaded.simulator->synthesizer().setAudioParameters(audioParams);
+ 
+     initializeImpulseResponses(&loaded);
+@@ -617,6 +619,7 @@ void advanceSimulation(
+         }
+ 
+         if (recorded != nullptr) {
++            const double measuredRpm=loaded->engine->getRpm();loaded->rpmSum+=measuredRpm;loaded->rpmFrames++;loaded->rpmMin=std::min(loaded->rpmMin,measuredRpm);loaded->rpmMax=std::max(loaded->rpmMax,measuredRpm);
+             const int remaining = targetRecordedSamples - static_cast<int>(recorded->size());
+             drainAudio(loaded->simulator, recorded, remaining);
+         }
+@@ -634,6 +637,7 @@ std::vector<int16_t> captureSeconds(
+     bool loop,
+     double loopCrossfadeSeconds)
+ {
++    loaded->rpmSum=0;loaded->rpmMin=1e9;loaded->rpmMax=0;loaded->rpmFrames=0;
+     const int requestedSamples = static_cast<int>(std::lround(seconds * AudioSampleRate));
+     const int extraSamples = loop
+         ? std::min(
+@@ -821,6 +825,7 @@ void exportRpmLoop(
+     std::vector<int16_t> samples =
+         captureSeconds(&loaded, options.durationSeconds, true, options.loopCrossfadeSeconds);
+ 
++    std::cout<<"CAPTURE "<<rpm<<" "<<throttlePercent<<" "<<loaded.rpmSum/std::max(1,loaded.rpmFrames)<<" "<<loaded.rpmMin<<" "<<loaded.rpmMax<<std::endl;
+     exportClip(
+         options.outputDirectory / (
+             baseName + "_rpm_" + std::to_string(rpm)
+diff --git a/src/connecting_rod.cpp b/src/connecting_rod.cpp
+index 7474bcd..2a8102c 100644
+--- a/src/connecting_rod.cpp
++++ b/src/connecting_rod.cpp
+@@ -1,4 +1,4 @@
+-#include "..\include\connecting_rod.h"
++#include "../include/connecting_rod.h"
+ #include "../include/connecting_rod.h"
+ 
+ #include <cmath>
+diff --git a/src/engine.cpp b/src/engine.cpp
+index 15e326d..f19e3fd 100644
+--- a/src/engine.cpp
++++ b/src/engine.cpp
+@@ -1,4 +1,4 @@
+-#include "..\include\engine.h"
++#include "../include/engine.h"
+ #include "../include/engine.h"
+ 
+ #include "../include/constants.h"
+diff --git a/src/synthesizer.cpp b/src/synthesizer.cpp
+index 1f688e3..9c1f8f2 100644
+--- a/src/synthesizer.cpp
++++ b/src/synthesizer.cpp
+@@ -326,7 +326,7 @@ int16_t Synthesizer::renderAudio(int inputSample) {
+         float v_in =
+             f_p * dF_F_mix
+             + f * r_mixed * (1 - dF_F_mix);
+-        if (fpclassify(v_in) == FP_SUBNORMAL) {
++        if (std::fpclassify(v_in) == FP_SUBNORMAL) {
+             v_in = 0;
+         }
+ 
