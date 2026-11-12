@@ -1,0 +1,45 @@
+appId: com.marvyndesousa.driftdrive
+productName: Drift Drive
+copyright: Copyright © 2026 Marvyn De Sousa
+asar: true
+npmRebuild: false
+directories:
+  output: release
+  buildResources: desktop/assets
+files:
+  - desktop/main.cjs
+  - desktop/assets.cjs
+  - desktop/assets/icon.png
+  - .desktop/game/**/*
+  - .desktop/manifest.json
+  - package.json
+artifactName: Drift-Drive-${version}-${os}-${arch}.${ext}
+mac:
+  category: public.app-category.games
+  icon: desktop/assets/icon.icns
+  minimumSystemVersion: '12.0'
+  identity: '-'
+  hardenedRuntime: false
+  notarize: false
+  target:
+    - dmg
+    - zip
+dmg:
+  title: Drift Drive
+  window:
+    width: 600
+    height: 400
+win:
+  icon: desktop/assets/icon.ico
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Drift Drive
+  uninstallDisplayName: Drift Drive
+  deleteAppDataOnUninstall: false

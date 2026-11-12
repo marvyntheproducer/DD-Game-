@@ -4,6 +4,17 @@ A Three.js / Web Audio driving game with free roam, local split-screen, engine
 swaps, drift tuning, and custom road races. Locations are fictional and inspired
 by Japanese landscapes.
 
+## Desktop app for Mac and Windows
+
+The desktop edition bundles the complete game for offline play with a custom
+icon, native menus, fullscreen controls, photo-save dialogs and automatic local
+saves. Intel Mac, Apple Silicon Mac and Windows x64 installers are configured.
+See [DESKTOP.md](DESKTOP.md) for downloads, installation, controls and building.
+
+Developers: `npm ci`, then `npm run desktop:start`.
+Native installers: `npm run desktop:mac` or `npm run desktop:win`.
+The GitHub **Desktop installers** workflow builds all three architectures.
+
 ## Play
 
 Extract the entire folder and open `Drift Drive/index.html`. The game needs an

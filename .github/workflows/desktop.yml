@@ -1,0 +1,63 @@
+name: Desktop installers
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run desktop:prepare
+      - run: npm test
+  package:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15-intel
+            platform: mac
+            arch: x64
+          - os: macos-15
+            platform: mac
+            arch: arm64
+          - os: windows-latest
+            platform: win
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run desktop:prepare
+      - name: Build installer
+        run: npx electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          # Ad-hoc local signing only; no signing certificates or secrets are used.
+          CSC_FOR_PULL_REQUEST: 'true'
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: Drift-Drive-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+          if-no-files-found: error
+          retention-days: 30
