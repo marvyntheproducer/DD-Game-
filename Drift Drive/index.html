@@ -7715,6 +7715,10 @@ window.addEventListener('unhandledrejection',event=>window.reportStartupError(ev
 </script>
 <script src="sounds.js"></script>
 <script src="cruise-radio.js"></script>
+<script src="jdm-bank-JZ1Street.js"></script>
+<script src="jdm-bank-RB26Tour.js"></script>
+<script src="jdm-bank-JZ2Tour.js"></script>
+<script src="jdm-bank-RotaryTour.js"></script>
 <script src="jdm-audio.js"></script>
 <script type="importmap">
 {"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
@@ -7805,10 +7809,10 @@ const ENGINE_PROFILES={
 ENGINE_PROFILES.VQ35Recorded={name:'VQ35 · recorded Nissan 350Z / V6 gameplay build',induction:'na',tune:{hp:280,torque:350,boost:0,redline:6800,idle:850,final:3.54,inertia:.22,spoolRPM:2000,spoolRate:3,engineBrake:48,gears:6,g1:3.79,g2:2.32,g3:1.62,g4:1.27,g5:1,g6:.79},curve:[[0,.38],[.25,.70],[.45,.92],[.65,1],[.85,.94],[1,.74],[1.1,.45]]};
 ENGINE_PROFILES.MustangRecorded={name:'Mustang recorded blend · V8 gameplay build',induction:'na',tune:{hp:240,torque:390,boost:0,redline:6200,idle:800,final:3.73,inertia:.28,spoolRPM:1700,spoolRate:3,engineBrake:60,gears:5,g1:3.35,g2:1.99,g3:1.33,g4:1,g5:.68,g6:.60},curve:[[0,.44],[.25,.76],[.45,.98],[.6,1],[.85,.89],[1,.68],[1.1,.43]]};
 // Sound-source identities are explicit; chassis/response are gameplay approximations.
-ENGINE_PROFILES.JZ1Street={...ENGINE_PROFILES['2JZ'],name:'1JZ street swap · Engine Sim exhaust voice',tune:{...ENGINE_PROFILES['2JZ'].tune,hp:280,torque:370,redline:7200,gears:5,g1:3.25,g2:1.95,g3:1.31,g4:1,g5:.75,final:4.1}};
-ENGINE_PROFILES.RB26Tour={...ENGINE_PROFILES.RB25,name:'RB26 touring build · Engine Sim exhaust voice',tune:{...ENGINE_PROFILES.RB25.tune,hp:300,torque:400,redline:8000,gears:6,g1:3.83,g2:2.36,g3:1.69,g4:1.31,g5:1,g6:.79}};
-ENGINE_PROFILES.JZ2Tour={...ENGINE_PROFILES['2JZ'],name:'2JZ touring build · Engine Sim exhaust voice',tune:{...ENGINE_PROFILES['2JZ'].tune}};
-ENGINE_PROFILES.RotaryTour={...ENGINE_PROFILES.Rotary,name:'13B touring build · Engine Sim exhaust voice',tune:{...ENGINE_PROFILES.Rotary.tune}};
+ENGINE_PROFILES.JZ1Street={...ENGINE_PROFILES['2JZ'],name:'1JZ street swap · Engine Simulator capture',tune:{...ENGINE_PROFILES['2JZ'].tune,hp:280,torque:370,redline:7200,gears:5,g1:3.25,g2:1.95,g3:1.31,g4:1,g5:.75,final:4.1}};
+ENGINE_PROFILES.RB26Tour={...ENGINE_PROFILES.RB25,name:'RB26 touring build · Engine Simulator capture',tune:{...ENGINE_PROFILES.RB25.tune,hp:300,torque:400,redline:8000,gears:6,g1:3.83,g2:2.36,g3:1.69,g4:1.31,g5:1,g6:.79}};
+ENGINE_PROFILES.JZ2Tour={...ENGINE_PROFILES['2JZ'],name:'2JZ touring build · Engine Simulator capture',tune:{...ENGINE_PROFILES['2JZ'].tune}};
+ENGINE_PROFILES.RotaryTour={...ENGINE_PROFILES.Rotary,name:'13B touring build · actual RX-7 recording',tune:{...ENGINE_PROFILES.Rotary.tune}};
 const JDM_CARS={
  s14:{name:'Nissan Silvia S14',era:'Kouki · 1JZ street swap',engine:'JZ1Street',mass:1250,color:'#dfe3e8',shape:'coupe'},
  r34:{name:'Nissan Skyline GT-R R34',era:'RB26 touring build',engine:'RB26Tour',mass:1480,color:'#365e9b',shape:'boxy'},
@@ -8905,7 +8909,7 @@ function resetCar(c,idx){let i=idx;
 
 // ================= tuning UI =================
 function updOut(){for(const name of ['street','drift']){const button=document.getElementById('setup-'+name);button.style.borderColor=P.handling===name?'#ead09a':'#73818e';button.setAttribute?.('aria-pressed',String(P.handling===name));}
-  const [p,r,t]=estOutput();document.getElementById('tout').innerHTML=`≈ <b>${Math.round(p)} hp</b> @ ${r} rpm<br>≈ <b>${Math.round(t)} Nm</b> peak torque<br>${ENGINE_PROFILES[P.engine].name} · ${P.gears}-speed<br>${window.ENGINE_SOUNDS[P.engine]?.synthesized?'<small>Pulse synthesis with Engine Simulator exhaust response. Credits: audio/jdm/CREDITS.md.</small><br>':window.ENGINE_SOUNDS[P.engine]?.recorded?'<small>Real-car recording. Playback RPM references are approximate. Credits: audio/CREDITS.md.</small><br>':''}<small>Engine response and tuned builds are simulated. Slide support keeps your steering input in control.</small>`;
+  const [p,r,t]=estOutput();document.getElementById('tout').innerHTML=`≈ <b>${Math.round(p)} hp</b> @ ${r} rpm<br>≈ <b>${Math.round(t)} Nm</b> peak torque<br>${ENGINE_PROFILES[P.engine].name} · ${P.gears}-speed<br>${window.ENGINE_SOUNDS[P.engine]?.captured?'<small>Recorded from full Engine Simulator runs. These are simulated configurations, not real-car microphone recordings. Credits: audio/jdm/CREDITS.md.</small><br>':window.ENGINE_SOUNDS[P.engine]?.recorded?'<small>Actual car recording; playback RPM estimates are approximate. Credits: audio/jdm/CREDITS.md.</small><br>':''}<small>Engine response and tuned builds are simulated. Slide support keeps your steering input in control.</small>`;
   rememberEngine();try{localStorage.setItem('s14tune',JSON.stringify(P));}catch(error){console.warn('Settings could not be saved',error);}}
 function buildTune(){const list=document.getElementById('tlist');list.innerHTML='';
   const groups=[['Grip & drift',HANDLING_KEYS,true],['Power & boost',['hp','torque','boost'],false],['Gearbox',['final','g1','g2','g3','g4','g5','g6'],false],['Engine response',['redline','idle','inertia','spoolRPM','spoolRate','engineBrake'],false],['Camera & sound',['cameraEnergy','turboVolume'],false]];
@@ -8993,20 +8997,20 @@ function prepareLoop(buf){
   const gain=Math.min(4,0.16/Math.max(0.001,Math.sqrt(sum/(len*buf.numberOfChannels))),0.85/Math.max(0.001,peak));
   for(let ch=0;ch<out.numberOfChannels;ch++){const d=out.getChannelData(ch);for(let i=0;i<d.length;i++)d[i]*=gain;}
   return out;}
-const engineCache=new Map();let engineRefs=REFS,enginePhaseLocked=false;
-function mkLayer(a,buf,ref){const src=AC.createBufferSource();src.buffer=buf;src.loop=true;const g=AC.createGain();g.gain.value=0;src.connect(g);g.connect(a.engBus);if(enginePhaseLocked&&ref)src.playbackRate.value=(a.audioRPM||IDLE)/ref;src.start(a.engineStart||0,enginePhaseLocked?0:Math.random()*buf.duration);return {src,g,ref};}
+const engineCache=new Map();let engineRefs=REFS,enginePhaseLocked=false,engineDescriptors=null;
+function mkLayer(a,buf,ref){const src=AC.createBufferSource();src.buffer=buf;src.loop=true;const g=AC.createGain();g.gain.value=0;src.connect(g);g.connect(a.engBus);if((enginePhaseLocked||engineDescriptors)&&ref)src.playbackRate.value=(a.audioRPM||IDLE)/ref;src.start(a.engineStart||0,enginePhaseLocked||engineDescriptors?0:Math.random()*buf.duration);return {src,g,ref,load:'any'};}
 function buildLayers(c){const a=c.au;if(!a)return;for(const l of [...a.layers,...(a.lim?[a.lim]:[])]){l.src.stop();l.src.disconnect();l.g.disconnect();}
   a.audioRPM=clamp(c.rpm,IDLE,P.redline+300);a.engineStart=AC.currentTime+.025;
-  a.layers=['idle','low','mid','high'].filter(k=>engBufs[k]).map(k=>mkLayer(a,engBufs[k],engineRefs[k]));a.lim=engBufs.limiter?mkLayer(a,engBufs.limiter,0):null;}
+  a.layers=engineDescriptors?engineDescriptors.filter(d=>engBufs[d.key]).map(d=>Object.assign(mkLayer(a,engBufs[d.key],d.rpm),{load:d.load,key:d.key})):['idle','low','mid','high'].filter(k=>engBufs[k]).map(k=>mkLayer(a,engBufs[k],engineRefs[k]));a.lim=engBufs.limiter?mkLayer(a,engBufs.limiter,0):null;}
 async function loadEngine(name){if(!AC||!window.ENGINE_SOUNDS)return;const id=++engLoadId;
   const key=ENGINE_SOUNDS[name]?name:'RB25',set=ENGINE_SOUNDS[key];
   try{
-    if(!engineCache.has(key))engineCache.set(key,Promise.all(['idle','low','mid','high','limiter'].filter(k=>set[k]).map(async k=>{
+    if(!engineCache.has(key))engineCache.set(key,Promise.all((set.layers?set.layers.map(d=>d.key):['idle','low','mid','high','limiter']).filter(k=>set[k]).map(async k=>{
       const bytes=set[k].startsWith('audio/')?await fetch(set[k]).then(r=>{if(!r.ok)throw new Error(`Audio HTTP ${r.status}`);return r.arrayBuffer();}):b64(set[k]);
       const buf=await AC.decodeAudioData(bytes);return [k,k==='limiter'||set.seamless?buf:prepareLoop(buf)];
     })).then(Object.fromEntries));
     const bufs=await engineCache.get(key);if(id!==engLoadId)return;
-    engineRefs={...REFS,...set.refs};enginePhaseLocked=!!set.phaseLocked;engBufs=bufs;cars.forEach(buildLayers);document.getElementById('audio-status').style.display='none';
+    engineRefs={...REFS,...set.refs};enginePhaseLocked=!!set.phaseLocked;engineDescriptors=set.layers||null;engBufs=bufs;cars.forEach(buildLayers);document.getElementById('audio-status').style.display='none';
   }catch(e){engineCache.delete(key);console.warn('Engine audio unavailable',key,e);
     if(id===engLoadId){if(!Object.keys(engBufs).length&&key!=='RB25')loadEngine('RB25');
       const status=document.getElementById('audio-status');status.textContent='Engine sample could not load. Choose an engine in P to retry.';status.style.display='block';}}
@@ -9067,15 +9071,21 @@ function updateBackfire(c){
 }
 function beep(f,dur){if(!AC)return;const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime;o.frequency.value=f;g.gain.setValueAtTime(0.15,t);g.gain.exponentialRampToValueAtTime(0.001,t+dur);o.connect(g);g.connect(AU.master);o.start();o.stop(t+dur);}
 function updAudio(c,dt,spd,squeal){const a=c.au;if(!a)return;const t=AC.currentTime,targetRPM=clamp(c.rpm,IDLE,P.redline+300);a.audioRPM=a.audioRPM===undefined?targetRPM:a.audioRPM+(targetRPM-a.audioRPM)*(1-Math.exp(-dt*18));const rpm=a.audioRPM,Ls=a.layers,inp=c.inp,w=Ls.map(()=>0);
-  if(Ls.length){if(rpm<=Ls[0].ref)w[0]=1;else if(rpm>=Ls[Ls.length-1].ref)w[Ls.length-1]=1;
-    else for(let i=0;i<Ls.length-1;i++)if(rpm>=Ls[i].ref&&rpm<=Ls[i+1].ref){const f=(rpm-Ls[i].ref)/(Ls[i+1].ref-Ls[i].ref);w[i]=enginePhaseLocked?1-f:Math.cos(f*Math.PI/2);w[i+1]=enginePhaseLocked?f:Math.sin(f*Math.PI/2);}}
+  const load=inp.clutch||c.shiftT>0?inp.thr*0.65:inp.thr;
+  if(engineDescriptors&&Ls.length){
+    const refs=[...new Set(Ls.map(l=>l.ref))].sort((a,b)=>a-b);let lo=refs[0],hi=lo,f=0;
+    if(rpm>=refs.at(-1))lo=hi=refs.at(-1);
+    else if(rpm>lo)for(let i=0;i<refs.length-1;i++)if(rpm>=refs[i]&&rpm<refs[i+1]){lo=refs[i];hi=refs[i+1];f=(rpm-lo)/(hi-lo);break;}
+    Ls.forEach((l,i)=>{const blend=lo===hi?(l.ref===lo?1:0):l.ref===lo?Math.cos(f*Math.PI/2):l.ref===hi?Math.sin(f*Math.PI/2):0;
+      w[i]=blend*(l.load==='on'?Math.sqrt(clamp(load,0,1)):l.load==='off'?Math.sqrt(1-clamp(load,0,1))*.70:1);});
+  }else if(Ls.length){if(rpm<=Ls[0].ref)w[0]=1;else if(rpm>=Ls[Ls.length-1].ref)w[Ls.length-1]=1;
+    else for(let i=0;i<Ls.length-1;i++)if(rpm>=Ls[i].ref&&rpm<=Ls[i+1].ref){const f=(rpm-Ls[i].ref)/(Ls[i+1].ref-Ls[i].ref);w[i]=Math.cos(f*Math.PI/2);w[i+1]=Math.sin(f*Math.PI/2);}}
   Ls.forEach((l,i)=>{l.g.gain.setTargetAtTime(w[i],t,0.03);l.src.playbackRate.setTargetAtTime(enginePhaseLocked?rpm/l.ref:clamp(rpm/l.ref,window.ENGINE_SOUNDS[P.engine]?.pitchMin||.5,window.ENGINE_SOUNDS[P.engine]?.pitchMax||1.9),t,0.02);});
   const lim=c.limT>0;if(a.lim)a.lim.g.gain.setTargetAtTime(lim?0.28:0,t,0.02);
   a.pan.pan.setTargetAtTime(split?(c===car1?-0.6:0.6):0,t,0.1);a.out.gain.setTargetAtTime(split?0.75:1,t,0.1);
-  const load=inp.clutch||c.shiftT>0?inp.thr*0.65:inp.thr;
   const cut=lim?.78:1;
-  a.loadGain.gain.setTargetAtTime(.68+.32*clamp(load,0,1),t,.09);a.coastGain.gain.setTargetAtTime(0,t,.09);
-  a.engGain.gain.setTargetAtTime((0.42+0.58*load)*cut*0.85*(c.build?.exhaust==='mellow'?.8:c.build?.exhaust==='track'?1.1:1),t,0.04);
+  a.loadGain.gain.setTargetAtTime(engineDescriptors?1:.68+.32*clamp(load,0,1),t,.09);a.coastGain.gain.setTargetAtTime(0,t,.09);
+  a.engGain.gain.setTargetAtTime((engineDescriptors?.75+.25*load:0.42+0.58*load)*cut*0.85*(c.build?.exhaust==='mellow'?.8:c.build?.exhaust==='track'?1.1:1),t,0.04);
   a.engLP.frequency.setTargetAtTime((c.tunnelRoad?3200:c.camMode===3?2500:c.camMode===2?5000:2200+load*4800)*(c.build?.exhaust==='mellow'?.72:c.build?.exhaust==='track'?1.08:1),t,0.08);
   const turbo=ENGINE_PROFILES[P.engine].induction==='turbo',boost=Math.min(1,c.spool*P.boost/14);
   a.tb.frequency.setTargetAtTime(2200+c.spool*5200+rpm*0.15,t,0.08);a.tg.gain.setTargetAtTime((ENGINE_PROFILES[P.engine].induction==='supercharged'?boost*.003*inp.thr*P.turboVolume:0),t,0.06);

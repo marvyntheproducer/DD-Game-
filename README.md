@@ -1,4 +1,4 @@
-# Drift Drive V5.1.1 — JDM Nights
+# Drift Drive V5.2 — JDM Nights
 
 A Three.js / Web Audio driving game with free roam, local split-screen, engine
 swaps, drift tuning, and custom road races. Locations are fictional and inspired
@@ -44,16 +44,14 @@ follow springs, drift framing, mounted views, motion cues and FOV. Upgrading
 restores V4's 75% camera-intensity default once; later manual changes are saved.
 Other V5/V5.1 features remain in place.
 
-Four default audio voices use original crank-angle pulse synthesis and the
-MIT-licensed exhaust response/audio approach from Ange Yaghi's Engine Simulator.
-The older short field-recording loops have been replaced. These are lightweight
-synthesized approximations, not factory recordings or the complete simulator.
-Lossless loops retain crank phase through RPM changes; a single load-dependent
-filter handles acceleration and overrun. See `Drift Drive/audio/jdm/CREDITS.md`
-and `tools/prepare-sim-audio.py` for attribution and reproducible generation.
-Historical engine tuning remains readable; deprecated older sound choices stay
-hidden unless currently selected. Sound quality still needs a listening test
-on the player's device.
+The default six-cylinder audio now uses recordings of full Engine Simulator
+runs at seven held RPMs, with separate throttle-on/off takes. The RX-7 uses a
+credited real-car recording with stabilized rev sweeps and estimated RPM
+references. These replace the earlier simple pulse synthesis. The game plays
+pre-recorded loops and never runs the simulator. See `audio/jdm/CREDITS.md`
+and `tools/engine-sim-exporter/` for exact provenance and reproducible captures.
+The six-cylinder configurations are simulated approximations, not recordings
+of physical factory engines. The exact V4 camera rollback remains intact.
 
 Radio starts automatically on the first user-initiated mode entry. **J → Cruise
 radio** changes station or turns it off. An explicit Off choice is respected
@@ -436,3 +434,7 @@ Default audio uses steady crank-angle pulse synthesis plus Ange Yaghi's MIT-lice
 ## V5.1.1 camera rollback
 
 Supersedes V5/V5.1 camera changes. `cameraSpring` and `updCam` match V4 commit `5ab4783` byte for byte; `tests/fixtures/v4-camera.js` preserves that reference. Camera defaults and existing-save migration restore 75% intensity.
+
+## V5.2 recorded engine audio
+
+42 full-simulator captures plus four real RX-7 recording excerpts; independent load takes for the six-cylinder voices, denser RPM coverage and bounded simultaneous mixing. The earlier V5.1 pulse generator is retained only as a historical tool. Camera code remains verbatim V4.

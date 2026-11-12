@@ -1,14 +1,27 @@
-# V5.1 engine audio
+# V5.2 engine recordings
 
-The default banks replace V5's short field-recording excerpts with original crank-angle pulse synthesis convolved with the exhaust response from **Engine Simulator**, by **AngeTheGreat (Ange Yaghi)**.
+## 1JZ, RB26 and 2JZ-inspired simulator captures
 
-Upstream: https://github.com/ange-yaghi/engine-sim
-Commit: 85f7c3b959a908ed5232ede4f1a4ac7eafe6b630
-Source response: assets/sound-library/smooth/smooth_39.wav (included as engine-sim-smooth39.wav).
-License: MIT; full notice in ENGINE-SIM-LICENSE.txt.
+42 actual recordings of full Engine Simulator runs: seven held RPMs (900, 1500, 2300, 3300, 4500, 5800, 7200), each at 0% and 100% throttle, three seconds each. The simulator's dynamometer holds RPM while its crankshaft, combustion, gas-flow and exhaust/audio code runs offline. Measured RPM minimum/mean/maximum and raw WAV hashes are in manifest.json. All raw sources were checked for clipping before processing.
 
-`tools/prepare-sim-audio.py` adapts the DC removal, pressure/derivative blending and exhaust convolution approach in `src/synthesizer.cpp`, especially `initializeImpulseResponse` and `renderAudio`. The periodic cylinder-pressure excitation, engine voicing, filtering and bank generation are original Drift Drive work. No upstream C++ executable or third-party engine scripts are included. The Community Edition release linked by the user distributes a Windows application; its README points to this original open-source version. This is **not the complete Engine Simulator combustion/gas-flow model**, a live integration, a recording from that app, or verified factory engine audio.
+Original: AngeTheGreat / Ange Yaghi — https://github.com/ange-yaghi/engine-sim
+Offline exporter: Talhasarac — https://github.com/Talhasarac/engine-sim-sound-exporter
+Exporter commit: a548360a33c6ddcc28265ac08b71b8a5f514ed3c
+License: MIT, full original notice in ENGINE-SIM-LICENSE.txt.
 
-Four voices: even-firing six-cylinder 1JZ, RB26 and 2JZ-inspired configurations; two-rotor 13B-inspired voice (four exhaust events per 720 degrees). Eight complete cycles per loop; exact reference RPMs account for integer sample lengths. Steady pulses avoid accidental field-recording misfires, guessed RPM references and background noise. Pressure decay and exhaust mix differ per voice. Muted layers retain crank phase, layers start together, and linear blending avoids doubling correlated waveforms. A single load-dependent low-pass signal path avoids parallel-filter combing. These loops use lossless PCM WAV and runtime playback-rate interpolation, so they remain an approximation rather than a factory sound match.
+Drift Drive supplied capture configurations, Linux portability fixes, quieter capture levels, RPM verification, preparation and runtime mixing. Reproducible instructions, engine scripts and patches are in tools/engine-sim-exporter/. These are recordings of simulated JDM-inspired configurations, not recordings of physical cars, exact factory replicas or the closed-source Community Edition executable. The earlier simple pulse synthesizer is no longer the shipped audio source.
 
-Rebuild: `python tools/prepare-sim-audio.py` (NumPy and SciPy required). Inputs are included; no network access required. `manifest.json` records hashes and upstream commit. The earlier `tools/prepare-jdm-audio.py` remains a historical V5 recording utility and is not the generator for the shipped default banks.
+Processing: DC/high-pass cleanup at 30 Hz, mono 32 kHz resampling, conservative peak headroom, Vorbis encoding. The exporter applies a short seam edit; decoded loops receive a cached runtime seam overlap and level matching. Separate captured throttle-on/off sources mix with player throttle; RPM interpolates only nearby recording anchors. The full simulator never runs inside the game.
+
+## Actual RX-7 recording
+
+Creator: Taz Ringer.
+Source: https://commons.wikimedia.org/wiki/File:Mazda_RX-7_-_engine_and_exhaust_sound_(YouTube_4z0y1H2REvE).opus
+Original video: https://www.youtube.com/watch?v=4z0y1H2REvE
+License: Creative Commons Attribution 3.0 Unported — https://creativecommons.org/licenses/by/3.0/
+
+Four longer excerpts of this real-car recording replace the earlier pulse-synthesized rotary bank. Automatic periodicity tracking selects source windows; time warping stabilizes the recorded rev sweep, followed by the same cleanup/encoding. Source hash, exact windows, estimated reference RPMs and tracking quality are recorded in manifest.json. No separate physical throttle-off takes or verified tachometer data are claimed. RX-7 load response uses one recorded source path per RPM with volume/filter changes, rather than inventing or duplicating an off-load recording. The source's ambience and its estimated RPM calibration remain limitations. Changes do not imply creator endorsement.
+
+## Preview
+
+previews/2jz-3000rpm.mp3 is a +6 dB MP3 audition of the unclipped 3000 RPM / full-throttle simulator capture, with the same MIT provenance. It is not a real-car microphone recording.

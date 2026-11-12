@@ -53,7 +53,7 @@ test('camera frusta skip most terrain and tree geometry',()=>{
 });
 test('all bundled engine audio references exist and WAV is genuine PCM',()=>{
   vm.runInContext(fs.readFileSync(new URL('../Drift Drive/sounds.js',import.meta.url),'utf8'),context);
-  vm.runInContext(fs.readFileSync(new URL('../Drift Drive/jdm-audio.js',import.meta.url),'utf8'),context);context.ENGINE_SOUNDS=context.window.ENGINE_SOUNDS;
+  for(const key of ['JZ1Street','RB26Tour','JZ2Tour','RotaryTour'])vm.runInContext(fs.readFileSync(new URL('../Drift Drive/jdm-bank-'+key+'.js',import.meta.url),'utf8'),context);vm.runInContext(fs.readFileSync(new URL('../Drift Drive/jdm-audio.js',import.meta.url),'utf8'),context);context.ENGINE_SOUNDS=context.window.ENGINE_SOUNDS;
   for(const bank of Object.values(context.window.ENGINE_SOUNDS))for(const k of ['idle','low','mid','high','limiter']){
     if(!bank[k])continue;
     if(bank[k].startsWith('audio/')){const b=fs.readFileSync(new URL('../Drift Drive/'+bank[k],import.meta.url));
@@ -242,7 +242,7 @@ context.ENGINE_SOUNDS=context.window.ENGINE_SOUNDS;context.AudioContext=FakeAudi
 context.fetch=async path=>({ok:true,arrayBuffer:async()=>{
   const b=fs.readFileSync(new URL('../Drift Drive/'+path,import.meta.url));return b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength);}});
 test('audio engine changes, cache, RPM mixing and split toggles release old nodes',async()=>{
-  g.initAudio();await g.loadEngine('2JZ');assert.equal(g.cars[0].au.layers.length,4);
+  g.initAudio();await g.loadEngine('2JZ');assert.equal(g.cars[0].au.layers.length,14);
   for(const rpm of [950,2800,4800,6800,7900]){g.cars[0].rpm=rpm;g.updAudio(g.cars[0],1/60,30,0);}
   const old=g.cars[0].au.layers.slice();await g.loadEngine('LS9');
   assert.ok(old.every(l=>l.src.stopped&&l.src.connections.length===0&&l.g.connections.length===0));
@@ -557,16 +557,22 @@ test('V5 quick race launches from the menu and its builder returns to the paused
   g.openLobbyBuilder();g.race.cps=[];g.prepareCourse();assert.equal(g.launchLobby(true),false);assert.equal(g.state.started,false);
   g.presetCourse('tunnel');assert.equal(g.launchLobby(true),true);assert.equal(g.race.active,true);assert.ok(g.race.name.includes('Tunnel'));g.openMainMenu();
 });
-test('V5.1 engine banks retain licensed provenance and use a single stable load signal path',async()=>{
-  for(const old of ['VQ35Recorded','MustangRecorded','RB25','2JZ','Rotary','LS9','ZB'])assert.equal(g.chooseInitialEngine(old),g.JDM_CARS[g.garage.ids[0]].engine);
-  assert.equal(g.chooseInitialEngine('JZ2Tour'),'JZ2Tour');
-  g.setStarted(true);g.initAudio();const manifest=JSON.parse(fs.readFileSync(new URL('../Drift Drive/audio/jdm/manifest.json',import.meta.url)));assert.equal(manifest.length,16);
-  for(const item of manifest){const bytes=fs.readFileSync(new URL('../Drift Drive/audio/jdm/'+item.file,import.meta.url));assert.equal(createHash('sha256').update(bytes).digest('hex'),item.sha256);assert.equal(item.license,'MIT');assert.ok(item.reference_rpm>700);assert.equal(item.cycles,8);assert.equal(bytes.toString('ascii',0,4),'RIFF');assert.equal(createHash('sha256').update(Buffer.from(context.window.ENGINE_SOUNDS[item.engine][item.layer],'base64')).digest('hex'),item.sha256);}
+test('captured engine banks retain provenance, steady RPM telemetry and independent load takes',async()=>{
+  const manifest=JSON.parse(fs.readFileSync(new URL('../Drift Drive/audio/jdm/manifest.json',import.meta.url)));
+  assert.equal(manifest.length,46);assert.equal(manifest.filter(x=>x.sourceKind==='engine-simulator-capture').length,42);
+  for(const item of manifest){const bytes=fs.readFileSync(new URL('../Drift Drive/audio/jdm/'+item.file,import.meta.url));assert.equal(bytes.toString('ascii',0,4),'OggS');assert.equal(createHash('sha256').update(bytes).digest('hex'),item.sha256);assert.equal(createHash('sha256').update(Buffer.from(context.window.ENGINE_SOUNDS[item.engine][item.layer],'base64')).digest('hex'),item.sha256);assert.ok(item.seconds>1.3);
+    if(item.sourceKind==='engine-simulator-capture'){assert.equal(item.license,'MIT');assert.ok(Math.abs(item.measured_rpm.mean-item.reference_rpm)<1);assert.equal(item.seconds,3);}else{assert.equal(item.license,'CC BY 3.0');assert.equal(item.rpm_is_estimated,true);}
+  }
+  g.setStarted(true);g.initAudio();
   for(const key of ['JZ1Street','RB26Tour','JZ2Tour','RotaryTour']){
-    g.selectEngine(key);await g.loadEngine(key);const c=g.cars[0],bank=context.window.ENGINE_SOUNDS[key];assert.equal(c.au.layers.length,4);assert.equal(bank.preferred,true);
-    c.rpm=6500;c.inp.thr=1;c.inp.clutch=false;c.shiftT=0;g.updAudio(c,1/60,30,0);const loaded=c.au.loadGain.gain.value;
-    c.inp.thr=0;g.updAudio(c,1/60,30,0);assert.ok(c.au.loadGain.gain.value<loaded);assert.equal(c.au.coastGain.gain.value,0);
-    assert.equal(bank.phaseLocked,true);assert.equal(bank.seamless,true);assert.equal(new Set(c.au.layers.map(l=>l.src.startedAt)).size,1);for(const layer of c.au.layers)assert.ok(Math.abs(layer.src.playbackRate.value*layer.ref-c.au.audioRPM)<1e-6);
+    g.selectEngine(key);await g.loadEngine(key);const c=g.cars[0],bank=context.window.ENGINE_SOUNDS[key];assert.equal(c.au.layers.length,key==='RotaryTour'?4:14);assert.equal(bank.phaseLocked,false);
+    c.rpm=3300;c.inp.clutch=false;c.shiftT=0;c.inp.thr=1;g.updAudio(c,1/60,25,0);
+    const loaded=c.au.layers.filter(l=>l.load==='on').reduce((n,l)=>n+l.g.gain.value,0);
+    c.inp.thr=0;g.updAudio(c,1/60,25,0);
+    if(key!=='RotaryTour'){assert.ok(loaded>0);assert.ok(c.au.layers.filter(l=>l.load==='off').some(l=>l.g.gain.value>0));assert.ok(c.au.layers.filter(l=>l.load==='on').every(l=>l.g.gain.value===0));}
+    assert.equal(c.au.coastGain.gain.value,0);for(const l of c.au.layers)if(l.g.gain.value>.1)assert.ok(l.src.playbackRate.value>.45&&l.src.playbackRate.value<2.6);
+    for(let n=0;n<120;n++){c.rpm=900+n/119*7200;c.inp.thr=(n%30)/29;g.updAudio(c,1/60,30,0);const active=c.au.layers.filter(l=>l.g.gain.value>1e-8);assert.ok(active.length<=4);assert.ok(active.reduce((sum,l)=>sum+l.g.gain.value**2,0)<=1.00001);for(const l of active)assert.ok(Number.isFinite(l.src.playbackRate.value)&&l.src.playbackRate.value>.25&&l.src.playbackRate.value<3);}
+
   }g.setStarted(false);
 });
 test('V5 radio starts on first mode entry and respects an explicit Off choice on resume',async()=>{
