@@ -3,8 +3,8 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
 import * as Three from 'three';
-export function loadGame(html=fs.readFileSync(new URL('../Drift Drive/index.html',import.meta.url),'utf8')) {
-  const noop=()=>{};const timers=[];const storage=new Map();
+export function loadGame(html=fs.readFileSync(new URL('../Drift Drive/index.html',import.meta.url),'utf8'),initialStorage={}) {
+  const noop=()=>{};const timers=[];const storage=new Map(Object.entries(initialStorage));
   const canvasContext=new Proxy({createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),
     createRadialGradient:()=>({addColorStop:noop}),createLinearGradient:()=>({addColorStop:noop})},
     {get:(o,k)=>k in o?o[k]:noop});
