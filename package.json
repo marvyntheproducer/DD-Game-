@@ -19,7 +19,7 @@
     "sharp": "0.34.5",
     "three": "0.160.0"
   },
-  "version": "5.1.0",
+  "version": "5.1.1",
   "description": "Drift Drive \u2014 Cruise Life, a Japanese-inspired arcade driving game",
   "author": {
     "name": "Marvyn De Sousa"

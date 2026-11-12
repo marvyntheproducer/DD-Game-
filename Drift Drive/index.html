@@ -7820,10 +7820,15 @@ const garage={ids:[Object.hasOwn(JDM_CARS,garageSaved.ids?.[0])?garageSaved.ids[
 const ENGINE_KEYS=Object.keys(ENGINE_PROFILES['2JZ'].tune);
 const engineTunes=loadSaved('s14engineTunes-v1'),savedTune=loadSaved('s14tune');
 const DEF={steer:58,gripF:1.05,gripR:1.02,mass:1250,hbrake:5000,assist:.60,dassist:.25,
-  driftStability:.75,cameraEnergy:.25,slideAssist:.35,clutchKick:1.15,kickWindow:.65,turboVolume:.4,trafficMode:1,handling:'drift',effects:1,color:'#dfe3e8',engine:'JZ1Street'};
+  driftStability:.75,cameraEnergy:.75,slideAssist:.35,clutchKick:1.15,kickWindow:.65,turboVolume:.4,trafficMode:1,handling:'drift',effects:1,color:'#dfe3e8',engine:'JZ1Street'};
 function chooseInitialEngine(saved){return Object.values(JDM_CARS).some(car=>car.engine===saved)?saved:JDM_CARS[garage.ids[0]].engine;}
 const initialEngine=chooseInitialEngine(savedTune.engine);
 const P=Object.assign({engineVolume:.8,musicVolume:.20,ambientVolume:.22},DEF,ENGINE_PROFILES[initialEngine].tune,savedTune,engineTunes[initialEngine]||{},{engine:initialEngine});
+// Restore V4's camera intensity once for existing V5/V5.1 saves, then allow tuning.
+if(savedTune.cameraRevision!=='v4-original'){
+  P.cameraEnergy=DEF.cameraEnergy;P.cameraRevision='v4-original';
+  try{localStorage.setItem('s14tune',JSON.stringify(P));}catch(e){console.warn('Camera setting could not be saved',e);}
+}
 P.gears=clamp(Math.round(P.gears),5,6);
 const TUNE=[['hp','Power limit (hp)',100,1000,5],['torque','Base-boost peak torque (Nm)',120,1100,5],['boost','Boost (psi)',0,35,.5],
   ['redline','Redline (rpm)',5500,10000,100],['idle','Idle (rpm)',650,1400,50],['final','Final drive',2.5,5.5,.05],
@@ -8685,7 +8690,7 @@ function prePhys(c){const fx=Math.cos(c.yaw),fz=-Math.sin(c.yaw);
   // Project gravity onto steep soil instead of letting a narrow cutout face
   // multiply horizontal acceleration beyond gravity.
   const gravityScale=support&&support.i===undefined?1/(1+gx*gx+gz*gz):1;
-  c.roadGradeX=gx;c.roadGradeZ=gz;c.gfx=-P.mass*9.81*gx*gravityScale;c.gfz=-P.mass*9.81*gz*gravityScale;
+  c.gfx=-P.mass*9.81*gx*gravityScale;c.gfz=-P.mass*9.81*gz*gravityScale;
   ground(c.x+fx*A,c.z+fz*A);c.muF=G_SURF*P.gripF;ground(c.x-fx*B,c.z-fz*B);c.surfR=G_SURF;c.muR=G_SURF*P.gripR;
   c.inWater=ground(c.x,c.z)<-0.4;}
 function clutchKick(c,ratio,vx){
@@ -9592,36 +9597,27 @@ function updateGrassFX(c,dt){
 }
 function cameraSpring(position,velocity,target,omega,dt){const d=position-target,t=(velocity+omega*d)*dt,e=Math.exp(-omega*dt);return [target+(d+t)*e,(velocity-omega*t)*e];}
 function updCam(c,dt,aspect){
-  const cam=c.cam,speed=Math.hypot(c.vwx,c.vwz),energy=(!reducedMotion&&P.effects)?P.cameraEnergy:0;
-  const snap=c.camSnap||c.cameraMode!==c.camMode||!Number.isFinite(c.camHeight);c.cameraMode=c.camMode;
-  const blend=1-Math.exp(-Math.min(dt,.1)*5);
-  c.camHeight=snap?c.y:clamp(c.camHeight+(c.y-c.camHeight)*blend,c.y-.30,c.y+.30);
-  const yv=c.camHeight,fx=Math.cos(c.yaw),fz=-Math.sin(c.yaw);
-  // Follow the chassis heading, never its suspension quaternion or drift velocity.
-  const targetYaw=c.yaw,dy=Math.atan2(Math.sin(targetYaw-c.camYaw),Math.cos(targetYaw-c.camYaw));
-  c.camYaw=snap?targetYaw:c.camYaw+dy*(1-Math.exp(-dt*12));
-  const mounted=c.camMode>=2;
-  if(mounted){
-    const cockpit=c.camMode===3,forward=cockpit?-.10:1.65,height=cockpit?1.10:.99,side=cockpit?.30:0;
-    cam.position.set(c.x+fx*forward+Math.sin(c.yaw)*side,yv+height,c.z+fz*forward+Math.cos(c.yaw)*side);
-    // Grade changes ease in independently of body roll and impact pitch.
-    const grade=clamp((c.roadGradeX||0)*fx+(c.roadGradeZ||0)*fz,-.35,.35);
-    c.cameraGrade=snap?grade:(c.cameraGrade||0)+(grade-(c.cameraGrade||0))*(1-Math.exp(-dt*7));
-    c.cameraAim=new THREE.Vector3(cam.position.x+fx*20,cam.position.y+c.cameraGrade*20,cam.position.z+fz*20);
-  }else{
-    const far=c.camMode===1,back=far?6.5:5.2,up=far?3.15:2.55;
-    // Anchor the offset to the moving car: a world-space spring added metres of lag at speed.
-    const tx=c.x-Math.cos(c.camYaw)*back,tz=c.z+Math.sin(c.camYaw)*back;
-    let ty=Math.max(yv+up,c.y+1.9,ground(tx,tz)+.85);
-    const tq=nearestRoad(tx,tz);if(tq&&EDGES[ROAD_EDGE[tq.i]].type==='tunnel'&&tq.d<tq.w)ty=Math.min(ty,tq.h+5.5);
-    cam.position.set(tx,ty,tz);
-    if(c.tunnelRoad){const q=nearestRoad(tx,tz);if(q&&EDGES[ROAD_EDGE[q.i]].type==='tunnel'){const side=clamp(q.d*q.side,-q.w+.75,q.w-.75);cam.position.x=q.px-q.tz*side;cam.position.z=q.pz+q.tx*side;cam.position.y=clamp(cam.position.y,q.h+.85,q.h+5.5);}}
-    c.cameraAim=new THREE.Vector3(c.x+fx*1.1,yv+1.0,c.z+fz*1.1);
+  const cam=c.cam,yv=c.root.position.y,speed=Math.hypot(c.vwx,c.vwz),energy=(!reducedMotion&&P.effects)?P.cameraEnergy:0;
+  const travel=speed>3?Math.atan2(-c.vwz,c.vwx):c.yaw,beta=Math.atan2(Math.sin(travel-c.yaw),Math.cos(travel-c.yaw));
+  const targetYaw=c.yaw+clamp(beta,-.9,.9)*(.15+energy*.18);
+  if(c.camSnap)c.camYaw=targetYaw;
+  const dy=Math.atan2(Math.sin(targetYaw-c.camYaw),Math.cos(targetYaw-c.camYaw));c.camYaw+=dy*(1-Math.exp(-dt*(5+energy*4)));
+  if(c.camMode===3){wp.set(-.10,1.09,.33);c.root.localToWorld(wp);cam.position.copy(wp);wp.set(15,1.02,.33);c.root.localToWorld(wp);cam.lookAt(wp);c.camSnap=false;}
+  else if(c.camMode===2){wp.set(1.9,.96,0);c.root.localToWorld(wp);cam.position.copy(wp);wp.set(14,1.0,0);c.root.localToWorld(wp);cam.lookAt(wp);c.camSnap=false;}
+  else{
+    const far=c.camMode===1,back=(far?8.2:5.8)+clamp(speed/70,0,1)*energy*.85,up=(far?2.8:1.9)+Math.abs(beta)*energy*.18;
+    const lateral=clamp(c.ayF*.012,-.22,.22)*energy,tx=c.x-Math.cos(c.camYaw)*back+Math.sin(c.camYaw)*lateral,tz=c.z+Math.sin(c.camYaw)*back+Math.cos(c.camYaw)*lateral;
+    let ty=Math.max(yv+up,ground(tx,tz)+.75);const tq=nearestRoad(tx,tz);if(tq&&EDGES[ROAD_EDGE[tq.i]].type==='tunnel'&&tq.d<tq.w)ty=Math.min(ty,tq.h+5.6);
+    c.camVelocity=c.camVelocity||new THREE.Vector3();
+    if(c.camSnap){cam.position.set(tx,ty,tz);c.camVelocity.set(0,0,0);c.camSnap=false;}
+    else{for(const [key,target] of [['x',tx],['y',ty],['z',tz]]){const result=cameraSpring(cam.position[key],c.camVelocity[key],target,key==='y'?8:10+energy*3,Math.min(dt,.05));cam.position[key]=result[0];c.camVelocity[key]=result[1];}}
+    cam.position.y=Math.max(cam.position.y,ground(cam.position.x,cam.position.z)+.65);
+    if(c.tunnelRoad){const q=nearestRoad(cam.position.x,cam.position.z);if(q&&EDGES[ROAD_EDGE[q.i]].type==='tunnel'){const side=clamp(q.d*q.side,-q.w+.75,q.w-.75);cam.position.x=q.px-q.tz*side;cam.position.z=q.pz+q.tx*side;cam.position.y=clamp(cam.position.y,q.h+.65,q.h+5.5);}}
+    const lead=Math.min(.20,4.5/Math.max(speed,1));cam.lookAt(c.x+c.vwx*lead+Math.cos(c.yaw)*1.2,yv+1.0,c.z+c.vwz*lead-Math.sin(c.yaw)*1.2);
+    if(energy>0&&!split){const pulse=(c.fxImpact||0)*Math.sin(performance.now()*.045)*.018*energy;cam.position.y+=pulse;cam.rotateZ(clamp(c.ayF*.0008,-.014,.014)*energy);}
   }
-  cam.up.set(0,1,0);cam.lookAt(c.cameraAim);c.camVelocity?.set(0,0,0);c.camSnap=false;
   cam.far=cruiseSettings.rain?1250:cruiseSettings.time==='night'?1500:!split&&soloQuality.tier===1?2000:1500;cam.aspect=aspect;
-  const targetFov=(mounted?66:58)+Math.min(speed/70,1)*energy*3;
-  cam.fov=snap?targetFov:cam.fov+(targetFov-cam.fov)*(1-Math.exp(-dt*5));cam.updateProjectionMatrix();
+  const targetFov=62+Math.min(speed,65)*(.14+energy*.07)+(!split?(c.fxKick||0)*energy*1.8:0);cam.fov+=(targetFov-cam.fov)*(1-Math.exp(-dt*7));cam.updateProjectionMatrix();
 }
 function renderView(c,x,y,w,h){
   gates.visible=race.active||builderOpen;updateRaceNav(c);

@@ -551,12 +551,6 @@ test('V5 checkpoint arrow is independent per split view and persists alongside e
   g.race.players[0].next=1;g.updateRaceNav(a);assert.ok(a.hud.navTarget.textContent.includes('CP 2'));assert.equal(g.gates.children.length,g.race.course.length+1);
   g.race.players[1].done=true;g.updateRaceNav(b);assert.equal(b.hud.nav.style.display,'none');assert.equal(a.hud.nav.style.display,'flex');g.endRace();assert.equal(a.hud.nav.style.display,'none');g.setSplit(false);g.setStarted(false);
 });
-test('V5 camera removes impact/shift shake and filters vertical aim changes',()=>{
-  g.setSplit(false);g.setStarted(true);const c=g.cars[0];g.placeCar(c,0,0,0);g.updVisual(c,0);c.vwx=20;c.vwz=0;c.ayF=0;c.camMode=0;
-  c.fxImpact=0;c.fxKick=0;c.camSnap=true;c.cam.fov=62;g.updCam(c,1/60,16/9);const p=c.cam.position.clone(),q=c.cam.quaternion.clone(),fov=c.cam.fov;
-  c.fxImpact=1;c.fxKick=1;c.camSnap=true;c.cam.fov=62;g.updCam(c,1/60,16/9);assert.ok(c.cam.position.distanceTo(p)<1e-8);assert.ok(c.cam.quaternion.angleTo(q)<1e-7);assert.equal(c.cam.fov,fov);
-  const height=c.camHeight;c.y+=.30;g.updCam(c,1/60,16/9);assert.ok(c.camHeight>height&&c.camHeight<height+.05);g.setStarted(false);
-});
 test('V5 quick race launches from the menu and its builder returns to the paused setup',()=>{
   g.openMainMenu();g.chooseLobbyMode('quick');g.garage.quickPlayers=1;g.garage.route='coast';assert.equal(g.launchLobby(),true);assert.equal(g.race.active,true);assert.equal(g.cars.length,1);
   g.openMainMenu();g.openLobbyBuilder();assert.equal(g.state.started,false);assert.equal(g.garage.menuBuilding,true);g.closeMap();assert.equal(g.garage.menuBuilding,false);assert.equal(context.document.getElementById('overlay').style.display,'flex');
@@ -582,12 +576,30 @@ test('V5 radio starts on first mode entry and respects an explicit Off choice on
   g.radio.autoStarted=false;g.startMode(false);assert.equal(g.radio.station,'off');g.openMainMenu();
 });
 
-test('V5.1 chase cameras retain a bounded distance at highway speed and reset every view',()=>{
-  g.setSplit(false);const c=g.cars[0];g.placeCar(c,0,0,0);c.y=10;c.gfx=0;c.gfz=0;c.vwx=70;c.vwz=0;
-  for(const mode of [0,1])for(const fps of [30,60,120]){
-    c.camMode=mode;c.camSnap=true;
-    for(let n=0;n<fps*2;n++){c.x+=70/fps;g.updCam(c,1/fps,16/9);const d=Math.hypot(c.cam.position.x-c.x,c.cam.position.z-c.z);assert.ok(d<=6.51);assert.ok(c.cam.position.y>=c.y+1.9);assert.ok(c.cam.fov<=61);}
-  }
-  for(const mode of [3,2,0,1,2,3]){c.camMode=mode;c.camSnap=false;g.updCam(c,1/60,16/9);assert.equal(c.cameraMode,mode);assert.ok(Math.hypot(c.cam.position.x-c.x,c.cam.position.z-c.z)<6.51);}
-  for(const mode of [2,3]){c.camMode=mode;c.camSnap=true;g.updCam(c,1/60,16/9);const p=c.cam.position.clone(),q=c.cam.quaternion.clone();c.root.rotation.set(.4,.8,-.3);c.susp=.2;c.fxImpact=1;g.updCam(c,1/60,16/9);assert.ok(c.cam.position.distanceTo(p)<1e-8);assert.ok(c.cam.quaternion.angleTo(q)<1e-7);c.roadGradeX=.12;c.camSnap=true;g.updCam(c,1/60,16/9);assert.ok(Math.abs(c.cameraAim.y-c.cam.position.y-2.4)<1e-8);c.roadGradeX=0;}
+test('camera code is exactly the original V4 implementation',()=>{
+  const original=fs.readFileSync(new URL('./fixtures/v4-camera.js',import.meta.url),'utf8');
+  const block=name=>original.slice(original.indexOf('function '+name+'(')).split('\nfunction ')[0].trim();
+  assert.equal(g.cameraSpring.toString(),block('cameraSpring'));assert.equal(g.updCam.toString(),block('updCam'));
+});
+test('all four camera views match V4 across speed, drift, split and frame rates',()=>{
+  const original=fs.readFileSync(new URL('./fixtures/v4-camera.js',import.meta.url),'utf8');
+  vm.runInContext('globalThis.referenceV4Camera=(function(){'+original+';return updCam;})();',context);
+  const energy=g.P.cameraEnergy;g.race.active=false;
+  for(const split of [false,true])for(const hz of [30,60,120])for(const mode of [0,1,2,3]){
+    g.setSplit(split);g.P.cameraEnergy=.75;const c=g.makeCar('#aabbcc',{},'s14');g.placeCar(c,0,0,.3);c.camMode=mode;c.fxImpact=0;c.fxKick=.4;
+    const reference={...c,cam:c.cam.clone(),camVelocity:undefined};
+    for(let n=0;n<24;n++){
+      c.x+=n/20;c.yaw+=.012;c.vwx=n*3;c.vwz=n*.8;c.ayF=2;
+      c.root.position.set(c.x,c.y,c.z);c.root.rotation.set(.025,-c.yaw,.015);c.root.updateMatrixWorld(true);
+      Object.assign(reference,{x:c.x,y:c.y,z:c.z,yaw:c.yaw,vwx:c.vwx,vwz:c.vwz,ayF:c.ayF});
+      g.updCam(c,1/hz,16/9);context.referenceV4Camera(reference,1/hz,16/9);
+      assert.ok(c.cam.position.distanceTo(reference.cam.position)<1e-9);assert.ok(c.cam.quaternion.angleTo(reference.cam.quaternion)<1e-7);assert.equal(c.cam.fov,reference.cam.fov);
+    }g.scene.remove(c.root);
+  }g.P.cameraEnergy=energy;g.setSplit(false);
+});
+test('upgrading restores V4 intensity once while retaining other tuning and later camera edits',()=>{
+  const first=loadGame(undefined,{s14tune:JSON.stringify({cameraEnergy:.25,hp:315})});
+  assert.equal(first.game.P.cameraEnergy,.75);assert.equal(first.game.P.hp,315);
+  const saved=JSON.parse(first.context.localStorage.getItem('s14tune'));saved.cameraEnergy=.4;
+  const again=loadGame(undefined,{s14tune:JSON.stringify(saved)});assert.equal(again.game.P.cameraEnergy,.4);assert.equal(again.game.P.hp,315);
 });

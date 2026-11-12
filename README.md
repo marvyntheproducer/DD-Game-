@@ -1,4 +1,4 @@
-# Drift Drive V5.1 — JDM Nights
+# Drift Drive V5.1.1 — JDM Nights
 
 A Three.js / Web Audio driving game with free roam, local split-screen, engine
 swaps, drift tuning, and custom road races. Locations are fictional and inspired
@@ -39,9 +39,10 @@ shows the checkpoint sequence. An always-on HUD arrow and distance point at the
 next checkpoint independently for each player, including when the racing line
 is hidden. Arrows stop on finish/exit.
 
-Chase cameras sit closer and higher and keep a fixed follow distance at speed.
-Hood/cockpit views follow heading and filtered road grade without suspension
-roll. View changes reset their framing; terrain/tunnel clearance remains.
+The camera is restored verbatim from V4 commit `5ab4783`: all four views,
+follow springs, drift framing, mounted views, motion cues and FOV. Upgrading
+restores V4's 75% camera-intensity default once; later manual changes are saved.
+Other V5/V5.1 features remain in place.
 
 Four default audio voices use original crank-angle pulse synthesis and the
 MIT-licensed exhaust response/audio approach from Ange Yaghi's Engine Simulator.
@@ -431,3 +432,7 @@ Chase views use bounded car-relative offsets (5.2 m / 6.5 m) and higher mounts, 
 R34, A80 Supra and FD bodies now have separate dimension and silhouette profiles, curved roof/glass, sculpted fenders and wheel lips, revised lighting, bumper surrounds and aerofoil wings. These remain original procedural interpretations, not scanned or manufacturer-provided models.
 
 Default audio uses steady crank-angle pulse synthesis plus Ange Yaghi's MIT-licensed Engine Simulator exhaust response/audio approach. This is not the full simulator or a recording of it. See `Drift Drive/audio/jdm/CREDITS.md`. All layers retain phase through RPM changes; a single filter path handles load and overrun.
+
+## V5.1.1 camera rollback
+
+Supersedes V5/V5.1 camera changes. `cameraSpring` and `updCam` match V4 commit `5ab4783` byte for byte; `tests/fixtures/v4-camera.js` preserves that reference. Camera defaults and existing-save migration restore 75% intensity.
