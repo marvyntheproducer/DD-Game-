@@ -1,5 +1,13 @@
 # Engine audio sources
 
+## Current V5 JDM banks
+
+The default/current garage uses the newly edited recordings credited in
+[jdm/CREDITS.md](jdm/CREDITS.md). Their manifest records all sources, licenses,
+excerpt windows and output hashes. The older banks below are retained only for
+legacy saves and attribution history. No CarX sound files are included.
+
+
 ## Street engine (real recording)
 
 - File: `street-idle.wav` (original `loop_0.wav`, unmodified).

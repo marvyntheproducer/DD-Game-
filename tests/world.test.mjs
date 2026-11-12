@@ -53,6 +53,7 @@ test('camera frusta skip most terrain and tree geometry',()=>{
 });
 test('all bundled engine audio references exist and WAV is genuine PCM',()=>{
   vm.runInContext(fs.readFileSync(new URL('../Drift Drive/sounds.js',import.meta.url),'utf8'),context);
+  vm.runInContext(fs.readFileSync(new URL('../Drift Drive/jdm-audio.js',import.meta.url),'utf8'),context);context.ENGINE_SOUNDS=context.window.ENGINE_SOUNDS;
   for(const bank of Object.values(context.window.ENGINE_SOUNDS))for(const k of ['idle','low','mid','high','limiter']){
     if(!bank[k])continue;
     if(bank[k].startsWith('audio/')){const b=fs.readFileSync(new URL('../Drift Drive/'+bank[k],import.meta.url));
@@ -510,4 +511,73 @@ test('custom tyre smoke uses the chosen colour while grass remains natural and s
   const dust=g.smokeState.head;g.emit(c,p,1,1);assert.ok(Math.abs(g.smokeState.color[dust*3]-.43)<1e-6);
   g.setSplit(true);const split=g.smokeState.head;g.emit(c,p,1);assert.ok(Math.abs(g.smokeState.color[split*3]-.86)<1e-6);assert.equal(g.smokeMat.uniforms.uSolo.value,0);
   g.setSplit(false);g.updSmoke(10);g.updSmoke(0);assert.ok(g.smokeState.alpha.every(a=>a===0));
+});
+
+test('V5 garage contains only four JDM legends with distinct finite body geometry',()=>{
+  assert.deepEqual(Object.keys(g.JDM_CARS),['s14','r34','supra','fd']);const counts=[];
+  for(const id of Object.keys(g.JDM_CARS)){
+    const c=g.makeCar(g.JDM_CARS[id].color,{},id,0);let triangles=0;
+    c.root.traverse(o=>{if(o.isMesh){assert.ok(o.geometry.attributes.position.array.every(Number.isFinite));triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;}});
+    c.root.traverse(o=>{if(o.isMesh&&o.material===c.paint){assert.ok(o.geometry.attributes.color);assert.equal(o.geometry.attributes.color.count,o.geometry.attributes.position.count);}});
+    assert.equal(c.carId,id);assert.ok(c.factorySpoiler);assert.ok(c.frontPlate);assert.ok(triangles<12000);counts.push(triangles);g.scene.remove(c.root);
+  }
+  assert.equal(new Set(counts).size,4);assert.ok(g.ENGINE_PROFILES[g.JDM_CARS.fd.engine]);assert.equal(g.selectVehicle(0,'toString'),false);
+});
+test('V5 pre-start garage selects bodies, saves per-car appearance and keeps the simulation paused',()=>{
+  g.setStarted(false);g.race.active=false;g.setSplit(false);const hud=g.cars[0].hud,distance=g.cruiseProgress.distance;
+  assert.equal(g.chooseLobbyMode('split'),true);assert.equal(g.state.started,false);
+  assert.equal(g.selectVehicle(0,'r34'),true);assert.equal(g.cars[0].carId,'r34');assert.equal(g.P.engine,'RB26Tour');assert.equal(g.cars[0].hud,hud);
+  const old=g.cars[0],flame=old.fxFlame.children[0].geometry;let disposed=0;flame.addEventListener('dispose',()=>disposed++);
+  g.applyPlayerBuild(old,{paint:'#447799',spoiler:'gt'});g.selectVehicle(0,'supra');assert.equal(old.root.parent,null);assert.equal(disposed,0);
+  g.selectVehicle(0,'r34');assert.equal(g.cars[0].build.paint,'#447799');assert.equal(g.cars[0].build.spoiler,'gt');
+  assert.equal(JSON.parse(context.localStorage.getItem('dd-garage-v5')).ids[0],'r34');assert.equal(g.cruiseProgress.distance,distance);assert.equal(g.state.started,false);
+});
+test('V5 pre-built routes keep all start, intermediate and finish gates along the entire course',()=>{
+  g.race.active=false;
+  for(const kind of ['highway','mountain','coast','tunnel']){
+    g.presetCourse(kind);assert.ok(g.race.length>500);const circuit=g.race.loop&&g.race.cps.length>2;assert.equal(g.gates.children.length,g.race.course.length+(circuit?0:1));
+    assert.ok(g.gates.children.some(root=>root.userData.startGate));assert.equal(g.gates.children.at(-1).userData.index,g.race.course.length-1);
+    assert.ok(Math.abs(g.race.course.at(-1).distance-g.race.length)<.01);
+    let previous=0;for(const gate of g.race.course){assert.ok(gate.distance-previous<175);previous=gate.distance;}
+    assert.ok(g.gates.children.every(root=>root.visible));
+  }
+});
+test('V5 checkpoint arrow is independent per split view and persists alongside every gate',()=>{
+  g.setStarted(true);g.setSplit(true);g.presetCourse('coast');g.startRace();const [a,b]=g.cars,gate=g.race.course[0];
+  for(const c of [a,b]){c.x=gate.x-gate.tx*50;c.z=gate.z-gate.tz*50;c.yaw=Math.atan2(-gate.tz,gate.tx);}
+  b.yaw+=Math.PI/2;g.updateRaceNav(a);g.updateRaceNav(b);
+  assert.equal(a.hud.nav.style.left,'25%');assert.equal(b.hud.nav.style.left,'75%');assert.notEqual(a.hud.navArrow.style.transform,b.hud.navArrow.style.transform);
+  assert.ok(a.hud.navTarget.textContent.includes('CP 1'));g.gates.visible=false;g.renderView(a,0,0,640,720);assert.equal(g.gates.visible,true);
+  g.race.players[0].next=1;g.updateRaceNav(a);assert.ok(a.hud.navTarget.textContent.includes('CP 2'));assert.equal(g.gates.children.length,g.race.course.length+1);
+  g.race.players[1].done=true;g.updateRaceNav(b);assert.equal(b.hud.nav.style.display,'none');assert.equal(a.hud.nav.style.display,'flex');g.endRace();assert.equal(a.hud.nav.style.display,'none');g.setSplit(false);g.setStarted(false);
+});
+test('V5 camera removes impact/shift shake and filters vertical aim changes',()=>{
+  g.setSplit(false);g.setStarted(true);const c=g.cars[0];g.placeCar(c,0,0,0);g.updVisual(c,0);c.vwx=20;c.vwz=0;c.ayF=0;c.camMode=0;
+  c.fxImpact=0;c.fxKick=0;c.camSnap=true;c.cam.fov=62;g.updCam(c,1/60,16/9);const p=c.cam.position.clone(),q=c.cam.quaternion.clone(),fov=c.cam.fov;
+  c.fxImpact=1;c.fxKick=1;c.camSnap=true;c.cam.fov=62;g.updCam(c,1/60,16/9);assert.ok(c.cam.position.distanceTo(p)<1e-8);assert.ok(c.cam.quaternion.angleTo(q)<1e-7);assert.equal(c.cam.fov,fov);
+  const height=c.camHeight;c.y+=.30;g.updCam(c,1/60,16/9);assert.ok(c.camHeight>height&&c.camHeight<height+.05);g.setStarted(false);
+});
+test('V5 quick race launches from the menu and its builder returns to the paused setup',()=>{
+  g.openMainMenu();g.chooseLobbyMode('quick');g.garage.quickPlayers=1;g.garage.route='coast';assert.equal(g.launchLobby(),true);assert.equal(g.race.active,true);assert.equal(g.cars.length,1);
+  g.openMainMenu();g.openLobbyBuilder();assert.equal(g.state.started,false);assert.equal(g.garage.menuBuilding,true);g.closeMap();assert.equal(g.garage.menuBuilding,false);assert.equal(context.document.getElementById('overlay').style.display,'flex');
+  g.openLobbyBuilder();g.race.cps=[];g.prepareCourse();assert.equal(g.launchLobby(true),false);assert.equal(g.state.started,false);
+  g.presetCourse('tunnel');assert.equal(g.launchLobby(true),true);assert.equal(g.race.active,true);assert.ok(g.race.name.includes('Tunnel'));g.openMainMenu();
+});
+test('V5 engine banks embed licensed recordings with bounded RPM pitch and load/overrun blending',async()=>{
+  for(const old of ['VQ35Recorded','MustangRecorded','RB25','2JZ','Rotary','LS9','ZB'])assert.equal(g.chooseInitialEngine(old),g.JDM_CARS[g.garage.ids[0]].engine);
+  assert.equal(g.chooseInitialEngine('JZ2Tour'),'JZ2Tour');
+  g.setStarted(true);g.initAudio();const manifest=JSON.parse(fs.readFileSync(new URL('../Drift Drive/audio/jdm/manifest.json',import.meta.url)));assert.equal(manifest.length,16);
+  for(const item of manifest){const bytes=fs.readFileSync(new URL('../Drift Drive/audio/jdm/'+item.file,import.meta.url));assert.equal(createHash('sha256').update(bytes).digest('hex'),item.sha256);assert.ok(['CC BY 3.0','CC0 1.0'].includes(item.license));assert.ok(item.reference_rpm_estimate>700);}
+  for(const key of ['JZ1Street','RB26Tour','JZ2Tour','RotaryTour']){
+    g.selectEngine(key);await g.loadEngine(key);const c=g.cars[0],bank=context.window.ENGINE_SOUNDS[key];assert.equal(c.au.layers.length,4);assert.equal(bank.preferred,true);
+    c.rpm=6500;c.inp.thr=1;c.inp.clutch=false;c.shiftT=0;g.updAudio(c,1/60,30,0);const loaded=c.au.loadGain.gain.value;
+    c.inp.thr=0;g.updAudio(c,1/60,30,0);assert.ok(c.au.loadGain.gain.value<loaded);assert.ok(c.au.coastGain.gain.value>0);
+    for(const layer of c.au.layers)assert.ok(layer.src.playbackRate.value>=bank.pitchMin&&layer.src.playbackRate.value<=bank.pitchMax);
+  }g.setStarted(false);
+});
+test('V5 radio starts on first mode entry and respects an explicit Off choice on resume',async()=>{
+  g.openMainMenu();await g.setRadioStation('off');g.radio.autoStarted=false;g.radio.userSelected=false;g.startMode(false);
+  await Promise.resolve();await Promise.resolve();await Promise.resolve();assert.equal(g.radio.station,'lofi');assert.equal(g.radio.autoStarted,true);
+  await g.setRadioStation('off');g.openMainMenu();g.startMode(false);assert.equal(g.radio.station,'off');
+  g.radio.autoStarted=false;g.startMode(false);assert.equal(g.radio.station,'off');g.openMainMenu();
 });
