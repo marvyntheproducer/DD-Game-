@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {createRequire} from 'node:module';
-import {prepareDesktop,root} from '../scripts/prepare-desktop.mjs';
+import {prepareDesktop,makeDesktopHTML,root} from '../scripts/prepare-desktop.mjs';
 const require=createRequire(import.meta.url);
 const {resolveAsset,assetResponse,safeBounds}=require('../desktop/assets.cjs');
 const game=await prepareDesktop();
@@ -57,4 +57,10 @@ test('native icon containers include small and retina sizes and have intact offs
  const icns=await fs.readFile(path.join(root,'desktop/assets/icon.icns'));assert.equal(icns.toString('ascii',0,4),'icns');assert.equal(icns.readUInt32BE(4),icns.length);
  const kinds=[];for(let p=8;p<icns.length;){kinds.push(icns.toString('ascii',p,p+4));const n=icns.readUInt32BE(p+4);assert.ok(n>8&&p+n<=icns.length);p+=n;}
  assert.ok(kinds.includes('ic10')&&kinds.includes('icp4'));
+});
+
+test('Windows CRLF checkouts produce the same runnable hashed HTML as Mac/Linux',async()=>{
+ const source=await fs.readFile(path.join(root,'Drift Drive/index.html'),'utf8');
+ const lf=source.replace(/\r\n?/g,'\n'),crlf=lf.replace(/\n/g,'\r\n');
+ assert.equal(makeDesktopHTML(crlf),makeDesktopHTML(lf));assert.ok(!makeDesktopHTML(crlf).includes('\r'));
 });
