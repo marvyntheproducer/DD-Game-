@@ -1,0 +1,396 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import {createHash} from 'node:crypto';
+import {loadGame} from './game-harness.mjs';
+const {game:g,context,Three}=loadGame();g.boot();
+test('actual startup callback reaches ready with finite terrain, a car, and bounded tree batches',()=>{
+  assert.equal(context.window.gameReady,true);
+  assert.ok(g.arrays.N>1000);assert.equal(g.cars.length,1);
+  for(const h of g.arrays.H)assert.ok(Number.isFinite(h));
+  let tiles=0,batches=0,maxTrees=0;
+  g.scene.traverse(o=>{if(o.userData.worldBatch==='trees'){batches++;maxTrees=Math.max(maxTrees,o.count);assert.ok(o.boundingSphere);}
+    else if(o.userData.worldBatch==='terrain')tiles++;});
+  assert.equal(tiles,196);assert.ok(batches>3);assert.ok(maxTrees<1000);
+});
+test('terrain query matches the rendered triangle at arbitrary interior points',()=>{
+  const {H}=g.arrays;const {SEG,STEP,HALF}=g.world;
+  for(const [tx,tz] of [[0.1,0.2],[0.7,0.8],[0.2,0.9]]){
+    const ix=20,iz=30,k=iz*(SEG+1)+ix,[a,b,c,d]=[H[k],H[k+1],H[k+SEG+1],H[k+SEG+2]];
+    const expected=tx+tz<=1?a+(b-a)*tx+(c-a)*tz:d+(c-d)*(1-tx)+(b-d)*(1-tz);
+    assert.ok(Math.abs(g.terrainH(-HALF+(ix+tx)*STEP,-HALF+(iz+tz)*STEP)-expected)<1e-7);
+  }
+});
+test('driving every road centre at 108 km/h does not launch at junctions',()=>{
+  const c=g.cars[0],{RX,RZ,TXa,TZa}=g.arrays;let maxRise=0,maxAir=0,maxAt=null;
+  for(const e of g.EDGES){g.placeCar(c,RX[e.s],RZ[e.s],0);
+    for(let i=e.s;i<e.s+e.n-1;i++){
+      const length=Math.hypot(RX[i+1]-RX[i],RZ[i+1]-RZ[i]),steps=Math.ceil(length/(30/240));
+      for(let j=0;j<steps;j++){
+        const t=j/steps;c.x=RX[i]+(RX[i+1]-RX[i])*t;c.z=RZ[i]+(RZ[i+1]-RZ[i])*t;
+        c.yaw=Math.atan2(-TZa[i],TXa[i]);c.r=0;c.vwx=TXa[i]*30;c.vwz=TZa[i]*30;
+        g.prePhys(c);g.step(c,1/240);maxRise=Math.max(maxRise,c.vyv);if(c.y-g.ground(c.x,c.z)>maxAir){maxAir=c.y-g.ground(c.x,c.z);maxAt={i,j,x:c.x,z:c.z,y:c.y,ground:g.ground(c.x,c.z),paved:g.pavedSurface(c.x,c.z),roadX:RX[i]+(RX[i+1]-RX[i])*t,roadZ:RZ[i]+(RZ[i+1]-RZ[i])*t};}
+        assert.ok([c.x,c.z,c.y,c.vwx,c.vwz,c.r,c.rpm].every(Number.isFinite));
+      }
+    }}
+  assert.equal(maxRise,0);assert.ok(maxAir<0.35,`max clearance ${maxAir}: ${JSON.stringify(maxAt)}`);
+});
+test('split-screen caps pixels and shadows, and restores solo settings',()=>{
+  for(let i=0;i<3;i++){
+    g.setSplit(true);assert.equal(g.cars.length,2);assert.equal(g.renderer.ratio,1);assert.equal(g.renderer.shadowMap.enabled,false);
+    g.setSplit(false);assert.equal(g.cars.length,1);assert.equal(g.renderer.ratio,1.5);assert.equal(g.renderer.shadowMap.enabled,true);
+  }
+});
+test('camera frusta skip most terrain and tree geometry',()=>{
+  const c=g.cars[0];g.updVisual(c,1/60);g.updCam(c,1/60,16/9);c.cam.updateMatrixWorld();
+  const f=new Three.Frustum().setFromProjectionMatrix(new Three.Matrix4().multiplyMatrices(c.cam.projectionMatrix,c.cam.matrixWorldInverse));
+  let all=0,visible=0;
+  g.scene.updateMatrixWorld(true);g.scene.traverse(o=>{if(!o.isMesh)return;
+    if(o.userData.worldBatch){const tris=o.geometry.index?o.geometry.index.count/3:o.geometry.attributes.position.count/3;
+      const count=tris*(o.isInstancedMesh?o.count:1);all+=count;if(f.intersectsObject(o))visible+=count;}});
+  assert.ok(visible<all*0.65,`${visible}/${all}`);console.log(`Cullable world triangles: ${visible} visible of ${all}`);
+});
+test('all bundled engine audio references exist and WAV is genuine PCM',()=>{
+  vm.runInContext(fs.readFileSync(new URL('../Drift Drive/sounds.js',import.meta.url),'utf8'),context);
+  for(const bank of Object.values(context.window.ENGINE_SOUNDS))for(const k of ['idle','low','mid','high','limiter']){
+    if(!bank[k])continue;
+    if(bank[k].startsWith('audio/')){const b=fs.readFileSync(new URL('../Drift Drive/'+bank[k],import.meta.url));
+      assert.equal(b.toString('ascii',0,4),'RIFF');assert.equal(b.toString('ascii',8,12),'WAVE');}
+    else assert.equal(Buffer.from(bank[k],'base64').toString('ascii',0,4),'OggS');
+  }
+});
+
+test('expanded map has a curved mountain expressway and named Japanese landscapes',()=>{
+  assert.equal(g.world.WORLD,14000);assert.ok(g.PLACES.length>=12);
+  const highways=g.EDGES.filter(e=>e.type==='highway');
+  const length=highways.reduce((sum,e)=>sum+e.length,0);
+  assert.ok(length>13000&&length<14500);
+  const highwayHeights=highways.flatMap(e=>[...g.arrays.RH.slice(e.s,e.s+e.n)]);
+  assert.ok(Math.max(...highwayHeights)-Math.min(...highwayHeights)>80);
+  const surface=[];g.scene.traverse(o=>{if(o.userData.worldBatch)surface.push(o.userData.worldBatch);});
+  for(const kind of ['bamboo','paddies','trees','roads','rails'])assert.ok(surface.includes(kind));
+});
+test('road surface matches collision across the full road width with no soil breaking through asphalt',()=>{
+  const {RX,RZ,RW,TXa,TZa}=g.arrays;let checked=0;
+  for(const e of g.EDGES)for(let j=0;j<e.n-1;j+=4){const i=e.s+j;
+    for(const side of [-.94,-.5,0,.5,.94]){
+      const x=RX[i]-TZa[i]*RW[i]*side,z=RZ[i]+TXa[i]*RW[i]*side,p=g.pavedSurface(x,z);
+      assert.ok(p,`missing paved road ${i} side ${side}`);const soil=g.soilSurface(x,z);if(soil)assert.ok(soil.h<p.h-.005&&soil.h>p.h-.03,`soil crosses asphalt at ${i}: ${soil.h-p.h}`);
+      assert.ok(Math.abs(g.ground(x,z)-p.h)<1e-7);checked++;
+    }}
+  assert.ok(checked>30000);
+});
+test('crossing paved seams does not create height steps across the driving width',()=>{
+  const {RX,RZ,RW,TXa,TZa}=g.arrays;let maxStep=0;
+  for(const e of g.EDGES)for(let j=1;j<e.n-1;j+=8){const i=e.s+j,w=RW[i];let previous=null;
+    for(let offset=-w*.95;offset<=w*.95;offset+=.35){const p=g.pavedSurface(RX[i]-TZa[i]*offset,RZ[i]+TXa[i]*offset);
+      if(p&&previous){maxStep=Math.max(maxStep,Math.abs(p.h-previous.h));assert.ok(Math.abs(p.h-previous.h)<.075,`height seam at ${i}: ${p.h-previous.h}`);}previous=p;}
+  }
+  console.log(`Maximum cross-road sample step ${maxStep.toFixed(5)} m`);
+});
+test('clipped road polygons do not duplicate asphalt at crossings or hairpins',()=>{
+  const seen=new Set(),ids=new Map(g.ROAD_SKIN.map((p,i)=>[p,i]));let checked=0;
+  for(const entries of g.SKIN_GRID.values())for(let i=0;i<entries.length;i++)for(let j=i+1;j<entries.length;j++){
+    const a=entries[i],b=entries[j];
+    if(a.bounds.minX>=b.bounds.maxX-1e-5||a.bounds.maxX<=b.bounds.minX+1e-5||a.bounds.minZ>=b.bounds.maxZ-1e-5||a.bounds.maxZ<=b.bounds.minZ+1e-5)continue;
+    const key=ids.get(a)+':'+ids.get(b);if(seen.has(key))continue;seen.add(key);
+    let poly=a.poly;for(let k=0;k<b.poly.length&&poly.length;k++)poly=g.clipHalf(poly,b.poly[k],b.poly[(k+1)%b.poly.length],true);
+    assert.ok(!poly.length||Math.abs(g.polyArea(poly))<.0001,`overlapping roads ${a.i}/${b.i}`);checked++;
+  }
+  assert.ok(checked>100);console.log(`Checked ${checked} potentially overlapping road polygon pairs`);
+});
+test('all paved road profiles respect climbable grade limits',()=>{
+  const {RX,RZ,RH}=g.arrays;for(const e of g.EDGES)for(let j=0;j<e.n-1;j++){
+    const i=e.s+j,grade=Math.abs(RH[i+1]-RH[i])/Math.hypot(RX[i+1]-RX[i],RZ[i+1]-RZ[i]);
+    assert.ok(grade<=e.maxGrade+.0001,`grade ${grade} at ${i}`);
+  }
+});
+test('supporting road planes remain climbable and do not pull cars toward cut banks',()=>{
+  for(const skin of g.ROAD_SKIN){const grade=Math.hypot(skin.plane.gx,skin.plane.gz),limit=g.EDGES[skin.owner].maxGrade;
+    assert.ok(grade<=limit+.00005,`steep rendered face ${skin.i}: ${grade}`);}
+  const c=g.cars[0],{RX,RZ,RW,TXa,TZa}=g.arrays;
+  for(const e of g.EDGES){const i=e.s+Math.floor(e.n/2),x=RX[i]-TZa[i]*RW[i]*.92,z=RZ[i]+TXa[i]*RW[i]*.92,p=g.pavedSurface(x,z);
+    if(!p)continue;g.placeCar(c,x,z,0);g.prePhys(c);
+    assert.ok(Math.abs(c.gfx+g.P.mass*9.81*p.gx)<1e-6);assert.ok(Math.abs(c.gfz+g.P.mass*9.81*p.gz)<1e-6);}
+});
+test('every baseline engine launches uphill against a 14 percent incline load',()=>{
+  const c=g.cars[0],e=g.EDGES.find(e=>e.type==='highway'),i=e.s+Math.floor(e.n/2),{RX,RZ,TXa,TZa}=g.arrays;
+  for(const name of Object.keys(g.ENGINE_PROFILES)){
+    g.selectEngine(name,'factory');g.placeCar(c,RX[i],RZ[i],Math.atan2(-TZa[i],TXa[i]));
+    c.muF=g.P.gripF;c.muR=g.P.gripR;c.inWater=false;Object.assign(c.inp,{thr:1,brk:0,hb:false,clutch:false});
+    c.gfx=-g.P.mass*9.81*.14*TXa[i];c.gfz=-g.P.mass*9.81*.14*TZa[i];
+    for(let tick=0;tick<960;tick++)g.step(c,1/240);
+    const progress=(c.x-RX[i])*TXa[i]+(c.z-RZ[i])*TZa[i];
+    assert.ok(progress>5&&c.vx>2,`${name} failed uphill: progress ${progress}, speed ${c.vx}`);
+  }
+  g.selectEngine('2JZ','factory');
+});
+test('automatic gears hold a burnout and avoid wheel-RPM shift hunting',()=>{
+  const c=g.cars[0];g.placeCar(c,0,0,0);c.gear=1;c.vx=2;c.wR=(g.P.redline-50)/(g.ratioOf(1)*60/(2*Math.PI));c.rpm=g.P.redline-50;c.inp.thr=1;
+  for(let i=0;i<120;i++)g.updateAutoShift(c);
+  assert.equal(c.gear,1);assert.equal(c.cutT,0);
+});
+test('a 1st to 2nd shift clears stale cuts and restores drive torque under hill load',()=>{
+  const c=g.cars[0],e=g.EDGES.find(e=>e.type==='highway'),i=e.s+Math.floor(e.n/2),{RX,RZ,TXa,TZa}=g.arrays;
+  g.placeCar(c,RX[i],RZ[i],Math.atan2(-TZa[i],TXa[i]));c.gear=1;c.vwx=TXa[i]*3;c.vwz=TZa[i]*3;c.vx=3;
+  c.wR=(g.P.redline-100)/(g.ratioOf(1)*60/(2*Math.PI));c.rpm=g.P.redline-100;c.cutT=.07;c.limT=.15;c.spool=1;
+  Object.assign(c.inp,{thr:1,brk:0,hb:false,clutch:false});c.gfx=-g.P.mass*9.81*.14*TXa[i];c.gfz=-g.P.mass*9.81*.14*TZa[i];
+  assert.equal(g.shift(c,1),true);assert.equal(c.gear,2);assert.equal(c.cutT,0);assert.equal(c.limT,0);
+  let powered=0;for(let tick=0;tick<96;tick++){g.step(c,1/240);g.updateAutoShift(c);if(c.driveTorque>100)powered++;}
+  assert.equal(c.gear,2);assert.ok(powered>25);assert.equal(c.cutT,0);assert.ok(c.vx>3);
+});
+test('every engine applies a distinct physical tune and remembers its edits',()=>{
+  const powers=new Set();
+  for(const name of Object.keys(g.ENGINE_PROFILES)){
+    g.selectEngine(name,'factory');assert.equal(g.P.hp,g.ENGINE_PROFILES[name].tune.hp);assert.equal(g.P.engine,name);
+    assert.equal(g.P.gears,g.ENGINE_PROFILES[name].tune.gears);
+    for(let rpm=800;rpm<=g.P.redline;rpm+=300)assert.ok(g.engineTorque(rpm,1)>0);
+    powers.add(g.P.torque);assert.ok(Number.isFinite(g.ratioOf(g.P.gears)));
+  }
+  assert.ok(powers.size>=5);g.selectEngine('RB25','factory');g.P.boost=19;g.selectEngine('LS9','factory');g.selectEngine('RB25');assert.equal(g.P.boost,19);
+  g.selectEngine('2JZ','factory');
+});
+test('clutch kick produces a controllable wheel-slip burst without a forced sideways impulse',()=>{
+  const c=g.cars[0];g.placeCar(c,0,0,0);c.gear=2;c.inp.thr=1;c.rpm=6500;c.clutchHeld=.15;c.wR=20/.32;c.vwx=20;c.vwz=4;
+  const before={wheel:c.wR,x:c.vwx,z:c.vwz,yaw:c.yaw};
+  assert.equal(g.clutchKick(c,g.ratioOf(2),20),true);assert.ok(c.wR>before.wheel);assert.ok(c.kickTimer>0);
+  assert.equal(c.vwx,before.x);assert.equal(c.vwz,before.z);assert.equal(c.yaw,before.yaw);
+  assert.ok(g.slideSupport(c,20,6)>0);c.inp.thr=0;assert.equal(g.slideSupport(c,20,6),0);
+  c.inp.thr=1;const strength=g.P.clutchKick;g.P.clutchKick=0;assert.equal(g.clutchKick(c,g.ratioOf(2),20),false);g.P.clutchKick=strength;
+  g.placeCar(c,0,0,0);assert.equal(c.kickTimer,0);
+});
+test('releasing a revved clutch triggers one kick; handbrake release does not',()=>{
+  const c=g.cars[0],q=g.nearestRoad(100,g.world.NODES[16][1]);g.placeCar(c,q.px,q.pz,0);c.gear=2;c.vwx=14;c.wR=14/.32;c.rpm=6300;
+  Object.assign(c.inp,{thr:1,brk:0,hb:false,clutch:true});
+  for(let i=0;i<24;i++){g.prePhys(c);g.step(c,1/240);}
+  c.inp.clutch=false;g.step(c,1/240);assert.ok(c.kickTimer>0);const timer=c.kickTimer;
+  for(let i=0;i<12;i++)g.step(c,1/240);assert.ok(c.kickTimer<timer);assert.equal(c.clutchHeld,0);
+  g.placeCar(c,q.px,q.pz,0);Object.assign(c.inp,{thr:1,brk:0,hb:true,clutch:false});
+  for(let i=0;i<24;i++)g.step(c,1/240);c.inp.hb=false;g.step(c,1/240);assert.equal(c.kickTimer,0);
+});
+test('slide support sustains lateral motion while manual countersteering keeps priority',()=>{
+  g.selectEngine('2JZ','factory');const c=g.cars[0],q=g.nearestRoad(100,g.world.NODES[16][1]),old=g.P.slideAssist;
+  function run(support){g.P.slideAssist=support;g.placeCar(c,q.px,q.pz,0);c.gear=2;c.vwx=20;c.vwz=-7;c.wR=20/.32;c.inp.thr=1;c.inp.brk=0;c.inp.clutch=false;c.inp.hb=false;
+    let sideways=0;for(let i=0;i<120;i++){if(i%4===0)g.prePhys(c);g.step(c,1/240);sideways+=Math.abs(c.vy)/240;}return sideways;}
+  const base=run(0),supported=run(.9);assert.ok(supported>base,`${supported} <= ${base}`);g.P.slideAssist=old;
+  g.placeCar(c,q.px,q.pz,0);c.vx=20;c.vy=8;c.inp.thr=1;c.kickTimer=.6;
+  g.keys.KeyA=true;g.readInput(c,1/60,0);assert.ok(c.rawSteer>0);assert.ok(c.steer>0);delete g.keys.KeyA;
+});
+test('travel reaches each landscape and is blocked during an active race',()=>{
+  const c=g.cars[0];for(let i=0;i<g.PLACES.length;i++){g.travelToPlace(i);assert.ok(g.nearestRoad(c.x,c.z).d<1);assert.equal(c.vyv,0);}
+  g.race.active=true;const x=c.x,z=c.z;g.travelToPlace(0);assert.equal(c.x,x);assert.equal(c.z,z);g.race.active=false;
+});
+test('route planner follows the highway and creates ordered directional gates',()=>{
+  g.presetCourse('highway');assert.ok(g.race.length>12500&&g.race.length<14500);assert.ok(g.race.course.length>60);
+  let previous=0;for(const gate of g.race.course){assert.ok(gate.distance>previous);previous=gate.distance;}
+  assert.ok(Math.max(...g.race.route.map(p=>p.z))-Math.min(...g.race.route.map(p=>p.z))>1500);
+  const gate=g.race.course[10],point=(along,side=0,height=0)=>({x:gate.x+gate.tx*along-gate.tz*side,z:gate.z+gate.tz*along+gate.tx*side,y:gate.y+height});
+  assert.equal(g.crossesGate(point(-30),point(30),gate),true);
+  assert.equal(g.crossesGate(point(30),point(-30),gate),false);
+  assert.equal(g.crossesGate(point(-30,gate.width+4),point(30,gate.width+4),gate),false);
+  assert.equal(g.crossesGate(point(-30,0,8),point(30,0,8),gate),false);
+});
+test('race countdown freezes cars; gates, recovery penalties and completion work end to end',()=>{
+  const oldPerformance=context.performance;let now=0;context.performance={now:()=>now};
+  g.presetCourse('highway');assert.equal(g.startRace(),true);const c=g.cars[0],x=c.x;
+  c.inp.thr=1;g.step(c,1/240);assert.equal(c.x,x);assert.equal(c.frozen,true);
+  now=3001;g.updRace();assert.equal(g.race.state,'run');assert.equal(c.frozen,false);
+  g.recoverRaceCar(c);assert.equal(g.race.players[0].penalty,5);
+  const p=g.race.players[0];
+  for(const gate of g.race.course){
+    p.previous={x:gate.x-gate.tx*5,z:gate.z-gate.tz*5,y:gate.y};
+    c.x=gate.x+gate.tx*5;c.z=gate.z+gate.tz*5;c.y=gate.y;now+=3000;g.updRace();
+  }
+  assert.equal(p.done,true);assert.equal(p.next,g.race.total);assert.equal(g.race.state,'done');assert.ok(p.time>5);
+  g.endRace();context.performance=oldPerformance;
+});
+test('circuits require every checkpoint on every lap',()=>{
+  const oldPerformance=context.performance;let now=0;context.performance={now:()=>now};
+  g.race.cps=[0,1,3].map(i=>({x:g.world.NODES[i][0],z:g.world.NODES[i][1]}));g.race.loop=true;g.race.laps=2;g.startRace();now=3001;g.updRace();
+  const c=g.cars[0],p=g.race.players[0],n=g.race.course.length;
+  for(let i=0;i<n*2;i++){const gate=g.race.course[i%n];p.previous={x:gate.x-gate.tx*4,z:gate.z-gate.tz*4,y:gate.y};
+    c.x=gate.x+gate.tx*4;c.z=gate.z+gate.tz*4;c.y=gate.y;now+=2000;g.updRace();if(i===n-1)assert.equal(p.done,false);}
+  assert.equal(p.done,true);assert.ok(Number.isFinite(p.bestLap));g.endRace();context.performance=oldPerformance;
+});
+
+class Param {
+  constructor(){this.value=0;}
+  setTargetAtTime(v){assert.ok(Number.isFinite(v));this.value=v;}
+  setValueAtTime(v){this.value=v;}
+  exponentialRampToValueAtTime(v){this.value=v;}
+  linearRampToValueAtTime(v){this.value=v;}
+}
+class AudioNode {
+  constructor(){this.gain=new Param();this.frequency=new Param();this.Q=new Param();this.pan=new Param();this.playbackRate=new Param();this.delayTime=new Param();this.connections=[];this.stopped=false;}
+  connect(n){this.connections.push(n);}disconnect(){this.connections=[];}start(time){this.startedAt=time;}stop(time){this.stoppedAt=time;assert.equal(this.stopped,false);this.stopped=true;}
+}
+class AudioBuffer {
+  constructor(ch,len,sr){this.numberOfChannels=ch;this.length=len;this.sampleRate=sr;this.duration=len/sr;this.data=Array.from({length:ch},()=>new Float32Array(len));}
+  getChannelData(ch){return this.data[ch];}
+}
+class FakeAudioContext {
+  constructor(){this.sampleRate=44100;this.currentTime=1;this.destination=new AudioNode();}
+  createBuffer(ch,len,sr){return new AudioBuffer(ch,len,sr);}
+  async decodeAudioData(bytes){assert.ok(bytes.byteLength>44);const b=this.createBuffer(1,4410,44100);const d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.sin(i/10)*0.5;return b;}
+  resume(){return Promise.resolve();}suspend(){return Promise.resolve();}
+}
+for(const name of ['Gain','BufferSource','DynamicsCompressor','Convolver','BiquadFilter','Delay','StereoPanner','Oscillator'])FakeAudioContext.prototype['create'+name]=()=>new AudioNode();
+test('audio engine changes, cache, RPM mixing and split toggles release old nodes',async()=>{
+  context.ENGINE_SOUNDS=context.window.ENGINE_SOUNDS;context.AudioContext=FakeAudioContext;
+  context.fetch=async path=>({ok:true,arrayBuffer:async()=>{
+    const b=fs.readFileSync(new URL('../Drift Drive/'+path,import.meta.url));return b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength);}});
+  g.initAudio();await g.loadEngine('2JZ');assert.equal(g.cars[0].au.layers.length,4);
+  for(const rpm of [950,2800,4800,6800,7900]){g.cars[0].rpm=rpm;g.updAudio(g.cars[0],1/60,30,0);}
+  const old=g.cars[0].au.layers.slice();await g.loadEngine('LS9');
+  assert.ok(old.every(l=>l.src.stopped&&l.src.connections.length===0&&l.g.connections.length===0));
+  await Promise.all([g.loadEngine('Rotary'),g.loadEngine('Street')]);assert.equal(g.cars[0].au.layers.length,1);
+  for(let i=0;i<5;i++){g.setSplit(true);assert.ok(g.cars[1].au);const a=g.cars[1].au;g.setSplit(false);
+    assert.ok([...a.srcs,...a.layers.map(l=>l.src)].every(n=>n.stopped&&n.connections.length===0));assert.equal(a.out.connections.length,0);}
+  assert.ok(g.engineCache.has('Street'));
+});
+test('loop preparation smooths the wrap and bounds sample peaks',()=>{
+  const ac=g.state.AC,b=ac.createBuffer(1,4410,44100),d=b.getChannelData(0);
+  for(let i=0;i<d.length;i++)d[i]=0.9*Math.sin(i/30);
+  const out=g.prepareLoop(b),v=out.getChannelData(0);
+  assert.ok(out.length<b.length);assert.ok([...v].every(Number.isFinite));assert.ok(Math.max(...v.map(Math.abs))<=0.851);
+  assert.ok(Math.abs(v[0]-v[v.length-1])<Math.abs(d[0]-d[d.length-1]));
+});
+
+test('road verges join soil within centimetres and edge poses remain upright',()=>{
+  const c=g.cars[0];let samples=0;
+  for(const skin of g.ROAD_SKIN.filter((_,i)=>i%61===0))for(let j=0;j<skin.poly.length;j++){
+    const a=skin.poly[j],b=skin.poly[(j+1)%skin.poly.length],dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);if(len<.3)continue;
+    const x=(a.x+b.x)/2+dz/len*.015,z=(a.z+b.z)/2-dx/len*.015;if(g.pavedSurface(x,z))continue;
+    const soil=g.soilSurface(x,z);if(!soil)continue;
+    const p=skin.plane,expected=p.h+p.gx*(x-p.x)+p.gz*(z-p.z);
+    assert.ok(Math.abs(soil.h-expected)<.15,`verge step ${Math.abs(soil.h-expected)} at ${x},${z} road ${skin.i}`);samples++;
+    g.placeCar(c,x,z,Math.atan2(-dz,dx));g.updVisual(c,1/60);
+    const up=new Three.Vector3(0,1,0).applyQuaternion(c.q);assert.ok(up.y>.88);
+    for(const w of c.wheels)assert.ok(Math.abs(w.pivot.position.y-.32)<=.07001);
+  }
+  assert.ok(samples>50);
+});
+test('clutch kick bounds wheel-speed gain and transfers only stored engine energy',()=>{
+  g.selectEngine('2JZ','factory');const c=g.cars[0];g.placeCar(c,0,0,0);
+  c.gear=2;c.inp.thr=1;c.rpm=7200;c.clutchHeld=.2;c.wR=25;
+  const old=c.wR,ratio=g.ratioOf(2),energy=.5*g.P.inertia*((c.rpm*2*Math.PI/60)**2-(old*ratio)**2);
+  assert.equal(g.clutchKick(c,ratio,8),true);assert.ok((c.wR-old)*.32<=4.50001);
+  assert.ok(c.kickEnergy<=energy*.85+.001);assert.equal(c.kickTorque,0);assert.ok(c.kickTimer<=.45);
+});
+test('turbo tone stays silent and one loaded lift produces one flutter',async()=>{
+  g.selectEngine('2JZ','factory');await g.loadEngine('2JZ');const c=g.cars[0];
+  c.turboLiftArmed=false;c.turboCooldown=0;c.lastSpool=0;c.spool=1;c.rpm=4000;c.inp.thr=1;
+  const count=c.au.flutterCount||0;for(let i=0;i<30;i++)g.updAudio(c,1/60,15,0);
+  assert.equal(c.au.tg.gain.value,0);assert.equal(c.au.flutterCount||0,count);
+  for(let i=29;i>=0;i--){c.inp.thr=i/30;g.updAudio(c,1/60,15,0);}
+  assert.equal(c.au.flutterCount,count+1);for(let i=0;i<120;i++)g.updAudio(c,1/60,15,0);
+  assert.equal(c.au.flutterCount,count+1);
+  const volume=g.P.turboVolume;g.P.turboVolume=0;g.playTurboFlutter(c.au,1);assert.equal(c.au.flutterCount,count+1);g.P.turboVolume=volume;
+});
+test('traffic is bounded, yields to players, and disables itself on slow frames',()=>{
+  g.endRace();g.setSplit(false);g.P.trafficMode=1;g.traffic.tier=2;g.setStarted(true);
+  assert.equal(g.trafficLimit(),6);assert.equal(g.traffic.meshes.length,5);
+  assert.ok(g.traffic.meshes.every(m=>m.isInstancedMesh&&!m.castShadow));
+  g.setSplit(true);assert.equal(g.trafficLimit(),4);g.setSplit(false);
+  const v=g.traffic.vehicles[0],c=g.cars[0],edge=g.EDGES.findIndex(e=>e.type==='highway');
+  Object.assign(v,{edge,s:g.EDGES[edge].length/2,active:true,speed:15,x:0,z:0,fx:1,fz:0});
+  g.placeCar(c,10,0,0);c.vwx=0;c.vwz=0;assert.ok(g.trafficTarget(v)<5);
+  const y=c.y,vy=c.vyv;Object.assign(v,{x:c.x+1,z:c.z,y:c.y,speed:10});g.collideTraffic(c,1/240);
+  assert.equal(c.y,y);assert.equal(c.vyv,vy);assert.ok(Math.abs(c.r)<=2.5);
+  for(let i=0;i<100;i++)g.updateTrafficBudget(.1);assert.equal(g.trafficLimit(),0);
+  for(let i=0;i<1000;i++)g.updateTrafficBudget(1/60);assert.equal(g.trafficLimit(),6);
+  g.P.trafficMode=0;g.updateTraffic(1/60);assert.ok(g.traffic.vehicles.every(v=>!v.active));g.P.trafficMode=1;
+  g.traffic.timer=0;const before=g.traffic.aiSteps;for(let i=0;i<60;i++)g.updateTraffic(1/60);
+  assert.ok(g.traffic.aiSteps-before>=9&&g.traffic.aiSteps-before<=10);g.setStarted(false);
+});
+test('S14 inspired body uses coupe proportions with bounded geometry',()=>{
+  const c=g.cars[0];assert.match(c.root.userData.model,/S14/);const d=c.root.userData.dimensions;
+  assert.ok(d.length>4.4&&d.length<4.6);let triangles=0;c.root.traverse(o=>{if(o.isMesh)triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;});
+  assert.ok(triangles<12000);
+});
+
+test('arcade menu selects both modes and freezes the run while paused',()=>{
+  assert.equal(g.startMode(true),true);assert.equal(g.state.started,true);assert.equal(g.cars.length,2);
+  g.openMainMenu();const c=g.cars[0],x=c.x,z=c.z;c.vwx=15;c.inp.thr=1;g.frame();
+  assert.equal(g.state.started,false);assert.equal(c.x,x);assert.equal(c.z,z);assert.equal(g.physicsClock.accumulator,0);
+  assert.equal(context.document.getElementById('menu-controls').style.display,'block');
+  assert.equal(g.startMode(false),true);assert.equal(g.cars.length,1);assert.equal(g.state.split,false);g.openMainMenu();
+});
+test('street and drift setups change handling while preserving engine configuration',()=>{
+  const engine=g.P.engine,power=g.P.hp,gears=g.P.g1;
+  g.applyHandlingPreset('street');assert.ok(g.P.gripR>g.P.gripF);assert.ok(g.P.slideAssist<.1);const lock=g.P.steer,kick=g.P.clutchKick;
+  g.applyHandlingPreset('drift');assert.ok(g.P.steer>lock);assert.ok(g.P.clutchKick>kick);assert.ok(g.P.slideAssist>.3);
+  assert.equal(g.P.engine,engine);assert.equal(g.P.hp,power);assert.equal(g.P.g1,gears);assert.equal(g.applyHandlingPreset('missing'),false);
+});
+test('traffic has solid oriented contacts that stop frontal penetration without lifting the car',()=>{
+  g.setSplit(false);g.P.trafficMode=1;g.traffic.tier=2;for(const v of g.traffic.vehicles)v.active=false;
+  const c=g.cars[0],v=g.traffic.vehicles[0];g.placeCar(c,-4.2,0,0);Object.assign(v,{active:true,x:0,z:0,y:c.y,fx:1,fz:0,speed:0});
+  c.vwx=40;c.vwz=0;const y=c.y,vertical=c.vyv;
+  assert.ok(g.trafficContact(c,v));g.collideTraffic(c,1/240);assert.equal(g.trafficContact(c,v),null);assert.ok(c.vwx<=0);
+  assert.equal(c.y,y);assert.equal(c.vyv,vertical);assert.ok(v.hold>=1);
+  g.placeCar(c,0,5,Math.PI/4);assert.equal(g.trafficContact(c,v),null);v.active=false;
+});
+test('solo backfire sound and flame use the same audio event and stay out of split-screen',()=>{
+  g.setStarted(true);g.setSplit(false);const c=g.cars[0],ac=g.state.AC;ac.currentTime=10;
+  c.nextBackfire=0;c.backfireArmed=false;c.lastFxGear=c.gear;c.lastFxCut=false;c.cutT=0;c.rpm=5000;c.inp.thr=1;g.updateBackfire(c);
+  const before=c.backfireCount||0;c.inp.thr=0;g.updateBackfire(c);assert.equal(c.backfireCount,before+1);
+  const event=c.backfireEvent;assert.ok(event.at>10);assert.equal(event.source.startedAt,event.at);g.updateSoloFX(0);assert.equal(c.fxFlame.visible,false);
+  ac.currentTime=event.at+.02;g.updateSoloFX(0);assert.equal(c.fxFlame.visible,true);
+  g.updateBackfire(c);assert.equal(c.backfireCount,before+1);assert.equal(g.triggerBackfire(c),false);
+  ac.currentTime=event.until+.01;g.updateSoloFX(0);assert.equal(c.fxFlame.visible,false);
+  event.source.onended();assert.equal(event.source.connections.length,0);
+  g.setSplit(true);ac.currentTime+=1;assert.equal(g.triggerBackfire(c),false);g.updateSoloFX(0);assert.equal(c.fxFlame.visible,false);
+  g.setSplit(false);g.setStarted(false);
+});
+test('solo graphics reduce their budget after slow frames and recover without changing split settings',()=>{
+  g.setStarted(true);g.soloQuality.tier=1;g.soloQuality.ema=1/60;g.soloQuality.slow=g.soloQuality.fast=0;g.applyRenderQuality();
+  assert.ok(g.roadRenderMats.every(m=>m.normalMap));for(let i=0;i<100;i++)g.updateSoloBudget(.08);
+  assert.equal(g.soloQuality.tier,0);assert.equal(g.renderer.shadowMap.enabled,false);assert.ok(g.roadRenderMats.every(m=>!m.normalMap));
+  for(let i=0;i<1200;i++)g.updateSoloBudget(1/60);assert.equal(g.soloQuality.tier,1);assert.equal(g.renderer.shadowMap.enabled,true);
+  g.setSplit(true);assert.equal(g.renderer.shadowMap.enabled,false);assert.equal(g.renderer.ratio,1);g.setSplit(false);g.setStarted(false);
+});
+test('analog instruments follow speed and RPM, clamp needles, and cap redraws at 30 Hz',()=>{
+  const c=g.cars[0],a=c.hud.analog;a.last=-Infinity;a.speed=a.rpm=0;c.vwx=20;c.vwz=0;c.rpm=6000;
+  g.updateAnalogGauge(c,1000);assert.equal(a.rpm,2400);assert.ok(Math.abs(a.speed-28.8)<1e-8);
+  g.updateAnalogGauge(c,1010);assert.equal(a.rpm,2400);g.updateAnalogGauge(c,1040);assert.ok(a.rpm>2400);
+  assert.equal(g.dialAngle(-10,320),g.dialAngle(0,320));assert.equal(g.dialAngle(500,320),g.dialAngle(320,320));
+});
+
+test('drift stabilizer opposes growing spin with bounded torque and fades for player input',()=>{
+  g.applyHandlingPreset('drift');const c=g.cars[0];g.placeCar(c,0,0,0);c.r=-1.5;c.rawSteer=0;c.inp.hb=false;c.inp.clutch=false;c.kickTimer=0;
+  const inertia=g.P.mass*1.52,help=g.driftYawAssist(c,20,25,inertia);
+  assert.ok(help>0&&help<=inertia*2.5);c.rawSteer=1;assert.ok(g.driftYawAssist(c,20,25,inertia)<help);
+  c.rawSteer=0;c.inp.hb=true;assert.ok(g.driftYawAssist(c,20,25,inertia)<help);c.inp.hb=false;
+  assert.equal(g.driftYawAssist(c,20,1,inertia),0);const vx=c.vwx,vz=c.vwz;g.driftYawAssist(c,20,25,inertia);assert.equal(c.vwx,vx);assert.equal(c.vwz,vz);
+});
+test('camera spring is stable and frame-rate independent for a fixed target',()=>{
+  const ends=[];for(const hz of [30,60,120]){let p=0,v=0;for(let i=0;i<hz;i++)[p,v]=g.cameraSpring(p,v,10,12,1/hz);assert.ok(p>9.9&&p<=10);ends.push(p);}
+  assert.ok(Math.max(...ends)-Math.min(...ends)<1e-10);
+});
+test('solo smoke is denser and prolonged heat flames are brief, bounded and disabled in split-screen',()=>{
+  g.setStarted(true);g.setSplit(false);g.soloQuality.tier=1;const c=g.cars[0],point=new Three.Vector3();
+  const index=g.smokeState.head;g.emit(c,point,1);const solo=g.smokeState.alpha[index];
+  g.setSplit(true);const next=g.smokeState.head;g.emit(c,point,1);assert.ok(solo>g.smokeState.alpha[next]*1.5);g.setSplit(false);
+  Object.assign(c,{tireHeat:1,burnTime:0,heatBursts:0,nextHeatBurst:0,heatFireUntil:0,wR:70,vx:0,contact:1});
+  g.updateTyreHeatFX(c,1);assert.equal(c.heatBursts,0);c.burnTime=8.1;g.updateTyreHeatFX(c,1/60);assert.equal(c.heatBursts,1);assert.equal(c.heatFlames.visible,true);
+  for(let i=0;i<100;i++)g.updateTyreHeatFX(c,1/60);assert.ok(c.heatBursts<=3);
+  g.setSplit(true);g.updateTyreHeatFX(c,0);assert.equal(c.heatFlames.visible,false);g.setSplit(false);c.tireHeat=0;g.updateTyreHeatFX(c,10);assert.equal(c.heatBursts,0);g.setStarted(false);
+});
+test('solo JDM detail is pooled and removed from split-screen rendering',()=>{
+  g.soloQuality.tier=1;g.setSplit(false);const c=g.cars[0];g.applyRenderQuality();assert.equal(c.jdm.visible,true);assert.ok(c.detailWheels.every(m=>m.visible));
+  g.setSplit(true);assert.equal(c.jdm.visible,false);assert.ok(c.detailWheels.every(m=>!m.visible));g.setSplit(false);
+});
+test('west-coast expansion connects new road types and a driveable covered tunnel',()=>{
+  for(const type of ['coast','industrial','tunnel'])assert.ok(g.EDGES.some(e=>e.type===type));assert.equal(g.TUNNELS.length,1);
+  const t=g.TUNNELS[0],e=g.EDGES[t.edge],i=e.s+Math.floor(e.n/2),a=g.arrays,c=g.cars[0];
+  assert.ok(t.length>800&&t.clearance>6);assert.ok(t.mesh.geometry.boundingSphere);assert.ok(t.fixtures.count<100);
+  g.placeCar(c,a.RX[i],a.RZ[i],Math.atan2(-a.TZa[i],a.TXa[i]));g.prePhys(c);assert.equal(c.tunnelRoad,true);
+  c.x-=a.TZa[i]*a.RW[i];c.z+=a.TXa[i]*a.RW[i];const y=c.y;g.collideTunnel(c);const q=g.nearestRoad(c.x,c.z);assert.ok(q.d<a.RW[i]);assert.equal(c.y,y);
+});
+test('real-car sound banks are embedded Ogg assets with reproducible source manifests',()=>{
+  const manifest=JSON.parse(fs.readFileSync(new URL('../Drift Drive/audio/recorded/manifest.json',import.meta.url),'utf8'));assert.equal(manifest.length,6);
+  for(const key of ['VQ35Recorded','MustangRecorded']){const bank=context.window.ENGINE_SOUNDS[key];assert.equal(bank.recorded,true);assert.ok(g.ENGINE_PROFILES[key]);
+    for(const layer of ['idle','low','mid'])assert.equal(Buffer.from(bank[layer],'base64').toString('ascii',0,4),'OggS');}
+  for(const item of manifest){const bytes=fs.readFileSync(new URL('../Drift Drive/'+item.file,import.meta.url));assert.ok(bytes.length>1000);assert.ok(item.length_seconds>0);assert.equal(createHash('sha256').update(bytes).digest('hex'),item.sha256);}
+});

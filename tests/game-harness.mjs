@@ -1,0 +1,28 @@
+// Runs the actual game/world code with Three.js geometry and math. Only DOM,
+// Canvas and GPU calls are stubbed; this is not a browser/rendering test.
+import fs from 'node:fs';
+import vm from 'node:vm';
+import * as Three from 'three';
+export function loadGame(html=fs.readFileSync(new URL('../Drift Drive/index.html',import.meta.url),'utf8')) {
+  const noop=()=>{};const timers=[];
+  const canvasContext=new Proxy({createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),
+    createRadialGradient:()=>({addColorStop:noop}),createLinearGradient:()=>({addColorStop:noop})},
+    {get:(o,k)=>k in o?o[k]:noop});
+  const element=()=>({style:{},dataset:{},children:[],addEventListener:noop,appendChild:noop,add:noop,
+    getContext:()=>canvasContext,querySelector:()=>element(),blur:noop});
+  const elements=new Map();const document={head:element(),body:element(),hidden:false,
+    getElementById:id=>{if(!elements.has(id))elements.set(id,element());return elements.get(id);},
+    createElement:element,addEventListener:noop};
+  class Renderer {constructor(){this.shadowMap={};this.domElement=element();this.capabilities={getMaxAnisotropy:()=>4};this.ratio=1;}
+    setPixelRatio(r){this.ratio=r;}getPixelRatio(){return this.ratio;}setSize(){}setScissorTest(){}setViewport(){}setScissor(){}render(){} }
+  class Sky extends Three.Object3D {constructor(){super();this.material={uniforms:Object.fromEntries(
+    ['turbidity','rayleigh','mieCoefficient','mieDirectionalG','sunPosition'].map(k=>[k,{value:new Three.Vector3()}]))};}}
+  const context={THREE:{...Three,WebGLRenderer:Renderer,PMREMGenerator:class {fromScene(){return {texture:new Three.Texture()};}}},Sky,
+    document,window:{reportStartupError:error=>{throw error;}},runPendingBoot:()=>{let count=0;while(timers.length){if(count++>1000)throw new Error('Startup did not settle');const before=performance.now();timers.shift()();if(process.env.DD_PROFILE)console.log('Startup stage',count,Math.round(performance.now()-before),'ms',Math.round(process.memoryUsage().heapUsed/1048576),'MB');}},innerWidth:1280,innerHeight:720,devicePixelRatio:2,
+    localStorage:{getItem:()=>null,setItem:noop},addEventListener:noop,setTimeout:callback=>timers.push(callback),requestAnimationFrame:noop,
+    navigator:{userAgent:'node-test',appName:'Netscape',getGamepads:()=>[]},Option:class{},console,performance,Uint8Array,Uint8ClampedArray,Float32Array,Int32Array,
+    atob:s=>Buffer.from(s,'base64').toString('binary')};
+  let script=html.match(/<script type="module">([\s\S]*?)<\/script>/)[1].replace(/^import .*;$/gm,'');
+  script+='\n globalThis.game={driftYawAssist,cameraSpring,updateTyreHeatFX,TUNNELS,collideTunnel,emit,get smokeState(){return {alpha:pA,life:pL,head:pHead};},dialAngle,updateAnalogGauge,startMode,openMainMenu,applyHandlingPreset,HANDLING_PRESETS,soloQuality,updateSoloBudget,updateSoloFX,triggerBackfire,updateBackfire,trafficContact,roadRenderMats,buildRoads,buildTerrain,buildRoad,buildTrees,buildTown,makeCar,prePhys,step,ground,terrainH,placeCar,updVisual,updCam,setSplit,applyRenderQuality,scene,renderer,prepareLoop,loadEngine,setupCarAudio,teardownCarAudio,updAudio,initAudio,engineCache,frame,physicsClock,buildTune,makeHud,buildMap,buildGates,resetCar,EDGES,cars,PLACES,ENGINE_PROFILES,P,selectEngine,engineTorque,ratioOf,nearestRoad,pavedSurface,soilSurface,supportingSurface,ROAD_SKIN,SKIN_GRID,SOIL_GRID,traffic,initTraffic,trafficLimit,updateTrafficBudget,stepTraffic,trafficTarget,renderTraffic,updateTraffic,collideTraffic,playTurboFlutter,polyArea,clipHalf,updateAutoShift,shift,clutchKick,slideSupport,buildNavigation,roadLeg,prepareCourse,presetCourse,pointAtRoute,gateAtDistance,crossesGate,startRace,endRace,updRace,recoverRaceCar,travelToPlace,race,world:{WORLD,HALF,SEG,STEP,NODES},keys,readInput,get arrays(){return {RX,RZ,RH,RW,TXa,TZa,NXT,N,H,ROAD_EDGE};},get state(){return {split,car1,car2,AC,engBufs,started};},setAudio(ac){AC=ac;},setStarted(on){started=on;},boot(){runPendingBoot();}};';
+  vm.createContext(context);vm.runInContext(html.split('// BEGIN BUNDLED CLIPPER\n')[1].split('// END BUNDLED CLIPPER')[0],context);vm.runInContext(fs.readFileSync(new URL('../Drift Drive/sounds.js',import.meta.url),'utf8'),context);context.ENGINE_SOUNDS=context.window.ENGINE_SOUNDS;vm.runInContext(script,context,{timeout:30000});return {game:context.game,context,Three};
+}
