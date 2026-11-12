@@ -178,7 +178,7 @@ test('slide support sustains lateral motion while manual countersteering keeps p
   g.keys.KeyA=true;g.readInput(c,1/60,0);assert.ok(c.rawSteer>0);assert.ok(c.steer>0);delete g.keys.KeyA;
 });
 test('travel reaches each landscape and is blocked during an active race',()=>{
-  const c=g.cars[0];for(let i=0;i<g.PLACES.length;i++){g.travelToPlace(i);assert.ok(g.nearestRoad(c.x,c.z).d<1);assert.equal(c.vyv,0);}
+  const c=g.cars[0];for(let i=0;i<g.PLACES.length;i++){g.travelToPlace(i);assert.ok(g.PLACES[i].siteId?g.pavedSurface(c.x,c.z):g.nearestRoad(c.x,c.z).d<1);assert.equal(c.vyv,0);}
   g.race.active=true;const x=c.x,z=c.z;g.travelToPlace(0);assert.equal(c.x,x);assert.equal(c.z,z);g.race.active=false;
 });
 test('route planner follows the highway and creates ordered directional gates',()=>{
@@ -236,10 +236,11 @@ class FakeAudioContext {
   resume(){return Promise.resolve();}suspend(){return Promise.resolve();}
 }
 for(const name of ['Gain','BufferSource','DynamicsCompressor','Convolver','BiquadFilter','Delay','StereoPanner','Oscillator'])FakeAudioContext.prototype['create'+name]=()=>new AudioNode();
+// Shared fixture also permits running menu/radio tests by name on their own.
+context.ENGINE_SOUNDS=context.window.ENGINE_SOUNDS;context.AudioContext=FakeAudioContext;
+context.fetch=async path=>({ok:true,arrayBuffer:async()=>{
+  const b=fs.readFileSync(new URL('../Drift Drive/'+path,import.meta.url));return b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength);}});
 test('audio engine changes, cache, RPM mixing and split toggles release old nodes',async()=>{
-  context.ENGINE_SOUNDS=context.window.ENGINE_SOUNDS;context.AudioContext=FakeAudioContext;
-  context.fetch=async path=>({ok:true,arrayBuffer:async()=>{
-    const b=fs.readFileSync(new URL('../Drift Drive/'+path,import.meta.url));return b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength);}});
   g.initAudio();await g.loadEngine('2JZ');assert.equal(g.cars[0].au.layers.length,4);
   for(const rpm of [950,2800,4800,6800,7900]){g.cars[0].rpm=rpm;g.updAudio(g.cars[0],1/60,30,0);}
   const old=g.cars[0].au.layers.slice();await g.loadEngine('LS9');
@@ -393,4 +394,69 @@ test('real-car sound banks are embedded Ogg assets with reproducible source mani
   for(const key of ['VQ35Recorded','MustangRecorded']){const bank=context.window.ENGINE_SOUNDS[key];assert.equal(bank.recorded,true);assert.ok(g.ENGINE_PROFILES[key]);
     for(const layer of ['idle','low','mid'])assert.equal(Buffer.from(bank[layer],'base64').toString('ascii',0,4),'OggS');}
   for(const item of manifest){const bytes=fs.readFileSync(new URL('../Drift Drive/'+item.file,import.meta.url));assert.ok(bytes.length>1000);assert.ok(item.length_seconds>0);assert.equal(createHash('sha256').update(bytes).digest('hex'),item.sha256);}
+});
+
+test('V4 weather changes lighting and rain budgets without taking tyre grip away',()=>{
+  g.setSplit(false);g.soloQuality.tier=1;g.applyRenderQuality();const grip=[g.P.gripF,g.P.gripR],c=g.cars[0];
+  assert.equal(g.setCruiseEnvironment('night',false),true);assert.equal(g.stars.visible,true);assert.ok(c.headlights.some(l=>l.visible&&l.intensity>0));
+  g.setSplit(true);assert.ok(g.cars.every(c=>c.headlights.every(l=>!l.visible)));g.setCruiseEnvironment('night',true);g.updateWeatherFX(1/60);
+  assert.equal(g.stars.visible,false);assert.ok(g.rainEffect.geometry.drawRange.count<=1200);assert.ok(g.roadRenderMats.every(m=>m.roughness<.6));
+  assert.deepEqual([g.P.gripF,g.P.gripR],grip);assert.equal(g.setCruiseEnvironment('invalid'),false);g.setSplit(false);g.setCruiseEnvironment('day',false);
+});
+test('all five cruise stops have connected paved driveways and persist one postcard per stop',()=>{
+  g.race.active=false;g.cruiseProgress.visited={};assert.equal(g.CRUISE_SITES.length,5);
+  for(const site of g.CRUISE_SITES){assert.ok(site.lot);const lot=site.lot;
+    for(let t=0;t<=1;t+=.05){const x=lot.anchor.x+(lot.x-lot.anchor.x)*t,z=lot.anchor.z+(lot.z-lot.anchor.z)*t;assert.ok(g.pavedSurface(x,z),`unpaved driveway at ${site.id} ${t}`);}
+    assert.equal(g.travelToCruiseSite(site.id),true);assert.ok(g.pavedSurface(g.cars[0].x,g.cars[0].z));assert.equal(g.cruiseProgress.visited[site.id],true);assert.equal(g.visitCruiseSite(site.id),false);
+  }
+  const saved=JSON.parse(context.localStorage.getItem('dd-progress-v4'));assert.equal(Object.keys(saved.visited).length,5);const c=g.cars[0],x=c.x,z=c.z;g.race.active=true;assert.equal(g.travelToCruiseSite('store'),false);assert.equal(c.x,x);assert.equal(c.z,z);g.race.active=false;
+});
+test('personal builds are independent per player, save locally and preserve handling physics',()=>{
+  g.setSplit(true);const [a,b]=g.cars,oldB=b.build.paint,engine=g.P.engine,grip=g.P.gripR,radius=a.wheels[0].pivot.position.y;
+  g.applyPlayerBuild(a,{paint:'#284455',wheels:'five',ride:'low',kit:'drift',exhaust:'mellow',interior:'red',decal:'postcard'});
+  assert.equal(a.build.paint,'#284455');assert.equal(b.build.paint,oldB);assert.equal(a.build.decal,'postcard');assert.ok(a.body.position.y<0);assert.equal(a.wheels[0].pivot.position.y,radius);
+  g.applyPlayerBuild(b,{paint:'#803d3d',wheels:'dish'});assert.equal(a.build.wheels,'five');assert.equal(g.P.engine,engine);assert.equal(g.P.gripR,grip);
+  const saved=JSON.parse(context.localStorage.getItem('dd-builds-v4'));assert.equal(saved[0].wheels,'five');assert.equal(saved[1].wheels,'dish');assert.equal(g.normalizedBuild({ride:'toString'}).ride,'stock');
+  g.applyPlayerBuild(a,{paint:'#dfe3e8',wheels:'six',ride:'stock',kit:'street',exhaust:'sport',interior:'classic',decal:'works'});g.setSplit(false);
+});
+test('car meets share a capped fleet, receive occasional arrivals and have solid parked cars',()=>{
+  g.race.active=false;g.setSplit(false);g.travelToCruiseSite('seaside');assert.equal(g.meetFleet.meshes.length,6);assert.ok(g.meetFleet.vehicles.length<=9);g.renderMeetFleet();assert.ok(g.meetFleet.body.count<=9);
+  g.setSplit(true);
+  const garage=g.CRUISE_SITES.find(s=>s.id==='garage').lot;g.placeCar(g.cars[1],garage.x,garage.z,0);g.renderMeetFleet();assert.ok(g.meetFleet.body.count<=6);
+  assert.ok(g.meetFleet.vehicles.some(v=>v.siteId==='garage'&&v.rendered));assert.ok(g.meetFleet.vehicles.some(v=>v.siteId==='seaside'&&v.rendered));
+  const hidden=g.meetFleet.vehicles.find(v=>v.active&&!v.rendered),c2=g.cars[1];if(hidden){g.placeCar(c2,hidden.x,hidden.z,0);c2.y=hidden.y;const x=c2.x,z=c2.z;g.collideMeetFleet(c2,1/240);assert.equal(c2.x,x);assert.equal(c2.z,z);}
+  g.setSplit(false);g.renderMeetFleet();g.meetFleet.clock=75;g.meetFleet.nextArrival=75;g.updateMeetFleet(.2);assert.ok(g.meetFleet.vehicles.some(v=>v.arriving));
+  const v=g.meetFleet.vehicles.find(v=>v.active&&!v.arriving),c=g.cars[0];g.placeCar(c,v.x-v.fx*4.0,v.z-v.fz*4.0,Math.atan2(-v.fz,v.fx));c.y=v.y;c.vwx=v.fx*15;c.vwz=v.fz*15;
+  const y=c.y;assert.ok(g.trafficContact(c,v));g.collideMeetFleet(c,1/240);assert.equal(g.trafficContact(c,v),null);assert.equal(c.y,y);
+});
+test('optional coastal and drift runs award postcards and cancel without resetting progress',()=>{
+  g.race.active=false;g.cruiseProgress.badges={};assert.equal(g.startCruiseChallenge('coast'),true);assert.ok(g.cruiseChallenge.route.length>10);
+  while(g.cruiseChallenge.active){const gate=g.cruiseChallenge.gates[g.cruiseChallenge.next],c=g.cars[0];g.cruiseChallenge.previous={x:gate.x-gate.tx*3,y:gate.y,z:gate.z-gate.tz*3};c.x=gate.x+gate.tx*3;c.z=gate.z+gate.tz*3;c.y=gate.y;g.updateCruiseChallenge(1/60);}
+  assert.equal(g.cruiseProgress.badges.coast,true);assert.equal(g.startCruiseChallenge('drift'),true);const c=g.cars[0];Object.assign(c,{vx:15,vy:6,contact:1,surfR:1,fxImpact:0});for(let i=0;i<6;i++)g.updateCruiseChallenge(1);assert.equal(g.cruiseProgress.badges.drift,true);
+  g.startCruiseChallenge('clean');const last=g.cruiseChallenge.gates.at(-1);g.cruiseChallenge.next=g.cruiseChallenge.gates.length-1;g.cruiseChallenge.previous={x:last.x-last.tx*3,y:last.y,z:last.z-last.tz*3};Object.assign(c,{x:last.x+last.tx*3,z:last.z+last.tz*3,y:last.y,fxImpact:1});g.updateCruiseChallenge(1/60);assert.equal(g.cruiseProgress.badges.clean,undefined);assert.equal(g.cruiseChallenge.result.clean,false);c.fxImpact=0;
+  g.startCruiseChallenge('clean');g.cancelCruiseChallenge();assert.equal(g.cruiseChallenge.active,false);assert.equal(g.cruiseProgress.badges.coast,true);assert.equal(g.startCruiseChallenge('missing'),false);
+});
+test('exploration saves distance and unlocks a banner without changing car performance',()=>{
+  g.setStarted(true);g.closeCruisePanel();g.cruiseProgress.visited={};g.cruiseProgress.distance=0;assert.equal(g.normalizedBuild({decal:'postcard'}).decal,'works');
+  for(const id of ['store','fuel','seaside'])g.visitCruiseSite(id);assert.equal(g.normalizedBuild({decal:'postcard'}).decal,'postcard');const c=g.cars[0];c.vwx=10;c.vwz=0;g.updateCruiseLife(1);assert.equal(g.cruiseProgress.distance,10);g.saveCruiseProgress();assert.equal(JSON.parse(context.localStorage.getItem('dd-progress-v4')).distance,10);g.setStarted(false);
+});
+test('radio stations use original embedded audio, release old sources and keep independent volumes',async()=>{
+  g.setStarted(true);g.closeCruisePanel();const originalFetch=context.fetch;context.fetch=async()=>{throw new Error('Radio must not fetch external media');};
+  assert.equal(await g.setRadioStation('lofi'),true);const first=g.radio.source;assert.equal(await g.setRadioStation('ambient'),true);assert.equal(first.stopped,true);assert.equal(first.connections.length,0);
+  await Promise.all([g.setRadioStation('jazz'),g.setRadioStation('lofi')]);assert.equal(g.radio.station,'lofi');assert.ok(g.radio.source);assert.ok(g.radio.buffers.size<=3);
+  g.P.engineVolume=.3;g.P.musicVolume=.5;g.updateCruiseAudio();assert.equal(g.radio.gain.gain.value,.5);assert.equal(await g.setRadioStation('missing'),false);assert.equal(g.radio.source,null);
+  const manifest=JSON.parse(fs.readFileSync(new URL('../Drift Drive/audio/radio/manifest.json',import.meta.url),'utf8'));assert.equal(manifest.length,3);
+  for(const item of manifest){const bytes=fs.readFileSync(new URL('../Drift Drive/audio/radio/'+item.file,import.meta.url));assert.equal(bytes.toString('ascii',0,4),'OggS');assert.equal(createHash('sha256').update(bytes).digest('hex'),item.sha256);assert.ok(item.seconds>50);}
+  await g.setRadioStation('off');context.fetch=originalFetch;g.P.engineVolume=.8;g.P.musicVolume=.2;g.setStarted(false);
+});
+test('personal music is local, revokes replaced object URLs and pauses with the menu',async()=>{
+  const urls=[],revoked=[];context.URL={createObjectURL:file=>{const url='blob:local-'+urls.length;urls.push(url);return url;},revokeObjectURL:url=>revoked.push(url)};
+  context.Audio=class{constructor(url){this.src=url;this.paused=true;}play(){this.paused=false;return Promise.resolve();}pause(){this.paused=true;}};
+  g.setStarted(true);assert.equal(g.importPersonalMusic({name:'not-a-song.txt',type:'text/plain'}),false);assert.equal(g.importPersonalMusic({name:'My cruise.mp3',type:'audio/mpeg'}),true);await Promise.resolve();assert.equal(g.radio.station,'personal');assert.equal(g.radio.personal.paused,false);
+  g.openMainMenu();assert.equal(g.radio.personal.paused,true);g.startMode(false);assert.equal(g.radio.personal.paused,false);assert.equal(g.importPersonalMusic({name:'Another song.ogg',type:'audio/ogg'}),true);assert.deepEqual(revoked,['blob:local-0']);await g.setRadioStation('off');g.radio.personal=null;g.radio.personalURL=null;g.setStarted(false);
+});
+test('photo mode freezes physics, traffic, challenge progress and mileage while orbiting and exporting',()=>{
+  g.setStarted(true);g.closeCruisePanel();g.startCruiseChallenge('coast');const c=g.cars[0];c.vwx=20;const state={x:c.x,z:c.z,distance:g.cruiseProgress.distance,next:g.cruiseChallenge.next,traffic:g.traffic.aiSteps};
+  assert.equal(g.enterPhoto(),true);g.photo.keys.add('KeyW');g.updatePhoto(.1);g.frame();g.frame();assert.equal(c.x,state.x);assert.equal(c.z,state.z);assert.equal(g.cruiseProgress.distance,state.distance);assert.equal(g.cruiseChallenge.next,state.next);assert.equal(g.traffic.aiSteps,state.traffic);assert.equal(g.capturePhoto(),true);assert.equal(g.renderer.lastCamera,g.photo.camera);
+  g.leavePhoto();assert.equal(g.photo.active,false);assert.equal(g.renderer.domElement.style.filter,'');g.cancelCruiseChallenge();g.race.active=true;assert.equal(g.enterPhoto(),false);assert.equal(g.openCruisePanel(),false);g.race.active=false;g.setStarted(false);
 });
