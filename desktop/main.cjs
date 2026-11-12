@@ -12,7 +12,7 @@ let win;
 const stateFile=path.join(app.getPath('userData'),'window.json');
 function readState(){try{return safeBounds(JSON.parse(fs.readFileSync(stateFile,'utf8')));}catch{return safeBounds();}}
 function saveState(){if(!win||win.isDestroyed())return;const size=win.getNormalBounds();try{fs.mkdirSync(path.dirname(stateFile),{recursive:true});fs.writeFileSync(stateFile,JSON.stringify({...size,maximized:win.isMaximized()}));}catch(error){console.warn('Window size could not be saved:',error.message);}}
-function showControls(){dialog.showMessageBox(win,{type:'info',title:'Drift Drive · Controls',message:'Your engine. Your roads.',detail:'WASD: drive · Space: handbrake · Shift: clutch\nQ / E: gears · M: auto/manual · C: camera · R: reset\nJ: Cruise Life / custom build · P: tuning\nO: photo mode · Tab: map · B: race builder · G: race\nEsc: menu / leave race · 2: local split-screen\n\nPhoto mode: drag to orbit, WASD to pan, Q/E to lift, Space to save PNG.\n\nAll game files are bundled. Builds, tuning and postcards save automatically in this app.'});}
+function showControls(){dialog.showMessageBox(win,{type:'info',title:'Drift Drive · Controls',message:'Your engine. Your roads.',detail:'WASD: drive · Space: handbrake · Shift: clutch\nQ / E: gears · M: auto/manual · C: camera · R: reset\nStart menu: 1 Solo · 2 Split · 3 Quick Race · Enter to launch\nJ: Cruise Life / custom build · P: tuning\nO: photo mode · Tab: map · B: race builder · G: race\nEsc: menu / leave race · 2: local split-screen\n\nPhoto mode: drag to orbit, WASD to pan, Q/E to lift, Space to save PNG.\n\nAll game files are bundled. Builds, tuning and postcards save automatically in this app.'});}
 function installMenu(){
  const view=[{role:'togglefullscreen',accelerator:process.platform==='darwin'?'Ctrl+Command+F':'F11'}];
  if(!app.isPackaged)view.push({role:'toggleDevTools'});
@@ -21,7 +21,7 @@ function installMenu(){
   {label:'Game',submenu:[{label:'Controls & shortcuts',click:showControls},{type:'separator'},...(process.platform==='darwin'?[]:[{role:'quit'}])]},
   {label:'Edit',submenu:[{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'}]},
   {label:'View',submenu:view},{role:'windowMenu'},
-  {label:'Help',submenu:[{label:'Controls & shortcuts',click:showControls},{label:'Open saved-data folder',click:()=>shell.openPath(app.getPath('userData'))},{label:'About Drift Drive',click:()=>dialog.showMessageBox(win,{type:'info',title:'About Drift Drive',message:'Drift Drive',detail:'Desktop '+app.getVersion()+' · Cruise Life V4.1\nCreated by Marvyn De Sousa\nFictional Japanese roads. Original procedural vehicle art.\nAudio and open-source credits are included with the game.'})}]}
+  {label:'Help',submenu:[{label:'Controls & shortcuts',click:showControls},{label:'Open saved-data folder',click:()=>shell.openPath(app.getPath('userData'))},{label:'About Drift Drive',click:()=>dialog.showMessageBox(win,{type:'info',title:'About Drift Drive',message:'Drift Drive',detail:'Desktop '+app.getVersion()+' · JDM Nights V5\nCreated by Marvyn De Sousa\nFictional Japanese roads. Original procedural vehicle art.\nAudio and open-source credits are included with the game.'})}]}
  ];
  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }

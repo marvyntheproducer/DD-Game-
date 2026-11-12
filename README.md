@@ -1,8 +1,69 @@
-# Drift Drive V4.1 — Solo Style
+# Drift Drive V5 — JDM Nights
 
 A Three.js / Web Audio driving game with free roam, local split-screen, engine
 swaps, drift tuning, and custom road races. Locations are fictional and inspired
 by Japanese landscapes.
+
+## V5 — JDM Nights
+
+Choose **Solo**, **Split Screen**, or **Quick Race** before entering the world,
+then choose your cars and tune them. Press **1/2/3** to select a mode and
+**Enter** to launch; the mode cards also work with a mouse.
+
+The curated garage contains only four JDM legends: **Nissan Silvia S14**,
+**Nissan Skyline GT-R R34**, **Toyota Supra A80** and **Mazda RX-7 FD**.
+Each uses its own original lightweight body silhouette and signature lighting/
+spoiler treatment. These are procedural interpretations, not OEM CAD assets.
+They share the existing arcade contact chassis; choosing a GT-R does not add
+a separate factory AWD simulation. Player 1's car choice selects a matching
+gameplay engine profile and approximate weight; split-screen shares the
+session's engine/handling tune. Each car/slot remembers its own appearance.
+
+The pre-start garage offers paint, wheels, spoilers, front/rear bumper options,
+smoke colour, Street/Drift setups and the full engine/gearbox tuning panel.
+Custom body/smoke options remain solo effects, following the V4.1 graphics
+budget. Old player builds/tunes remain readable. Choosing another body does
+not delete exploration progress.
+
+**Quick Race** supports solo time trials or local split-screen. Pick the Aoi
+Expressway Sprint, Fujimi Mountain Circuit, Shiosai Coastal Sprint or Shiosai
+Tunnel Run, or open the race builder before starting. Saved/custom routes
+continue to work. An incomplete custom route stays in the setup/builder and
+shows a message instead of starting a broken race.
+
+Every selected route builds its starting arch, intermediate gates and finish/
+lap gate before the countdown. Intermediate spacing is approximately 120 m,
+with extra gates at chosen waypoints. All gates remain in the scene throughout
+the race; normal camera range, fog and terrain occlusion still apply. The map
+shows the checkpoint sequence. An always-on HUD arrow and distance point at the
+next checkpoint independently for each player, including when the racing line
+is hidden. Arrows stop on finish/exit.
+
+The chase camera now filters height and look-at movement as well as position.
+Impact wobble, roll and shift FOV jolts are removed. Camera intensity still
+adjusts the smoother speed/drift framing; terrain/tunnel clearance remains.
+
+Four new **real-recording** audio banks replace the default old 350Z/Mustang
+mix: a 1JZ-swapped Silvia source, Skyline GT-R, Supra dyno and RX-7. RPM layers
+use estimated reference speeds, limited pitch stretch, equal-power blending,
+smoothed RPM and load/overrun/cockpit filtering. Limiter buzz and excessive wind
+noise are reduced. The Silvia source is a swapped S15 used for the clearly
+labelled S14 1JZ gameplay build. These are edited field/dyno excerpts, not
+verified factory recordings across every RPM, and subjective audio quality
+still needs listening/playtesting on the target device.
+
+No CarX game audio was copied. Source creators, CC BY 3.0/CC0 licenses, edit
+windows and hashes are in `Drift Drive/audio/jdm/CREDITS.md` and its manifest.
+`tools/prepare-jdm-audio.py` reproduces the edits from the credited sources.
+On upgrade, older engine selections switch to the chosen garage car’s new
+recording bank; historical engine tuning data remain stored. The older
+banks/files are retained for compatibility/credits; deprecated
+choices are hidden unless they are the currently selected legacy tune.
+
+Radio starts automatically on the first user-initiated mode entry. **J → Cruise
+radio** changes station or turns it off. An explicit Off choice is respected
+when pausing/resuming that session. Browsers require a user gesture, so the
+initial unclicked loading/menu screen stays silent.
 
 ## Desktop app for Mac and Windows
 

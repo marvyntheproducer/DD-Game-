@@ -1,6 +1,6 @@
 # Drift Drive desktop
 
-The desktop edition contains Cruise Life V4.1, a native app icon, offline game
+The desktop edition contains JDM Nights V5, a native app icon, offline game
 files, a fullscreen/windowed display, native menus and a persistent save profile.
 It does not need a browser, local server, Node.js or an internet connection to play.
 
@@ -23,7 +23,7 @@ open it. Windows may display an unknown-publisher warning. Only approve the
 build you obtained from this repository. Signing/notarization can be added
 when distribution certificates are available; no certificates are bundled.
 
-Open the app and choose Solo Run or Split Screen. All V4.1 controls remain:
+Open the app and choose Solo Run or Split Screen. The V5 pre-start menu provides car selection, tuning and Quick Race. Driving controls remain:
 J for Cruise Life/customization, P for tuning, O for photo mode, Tab for the
 map and Esc for the game menu. On Windows, F11 toggles fullscreen; on Mac use
 Control–Command–F or View → Enter Full Screen. Hold Alt on Windows to reveal
