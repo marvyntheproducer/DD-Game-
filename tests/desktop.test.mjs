@@ -2,6 +2,9 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import os from 'node:os';
+import vm from 'node:vm';
+import fsSync from 'node:fs';
 import {createHash} from 'node:crypto';
 import {createRequire} from 'node:module';
 import {prepareDesktop,makeDesktopHTML,root} from '../scripts/prepare-desktop.mjs';
@@ -63,4 +66,18 @@ test('Windows CRLF checkouts produce the same runnable hashed HTML as Mac/Linux'
  const source=await fs.readFile(path.join(root,'Drift Drive/index.html'),'utf8');
  const lf=source.replace(/\r\n?/g,'\n'),crlf=lf.replace(/\n/g,'\r\n');
  assert.equal(makeDesktopHTML(crlf),makeDesktopHTML(lf));assert.ok(!makeDesktopHTML(crlf).includes('\r'));
+});
+
+test('first desktop launch creates its save profile before asking Electron to use it',async()=>{
+ const temporary=await fs.mkdtemp(path.join(os.tmpdir(),'drift-first-launch-'));let selected;
+ const electron={protocol:{registerSchemesAsPrivileged(){}},app:{
+  setName(){},getPath(name){return name==='appData'?temporary:selected;},
+  setPath(name,value){assert.equal(name,'userData');assert.ok(fsSync.statSync(value).isDirectory());selected=value;},
+  requestSingleInstanceLock(){return true;},on(){},whenReady(){return new Promise(()=>{});}
+ }};
+ try{
+  const source=await fs.readFile(path.join(root,'desktop/main.cjs'),'utf8');
+  vm.runInNewContext(source,{require:name=>name==='electron'?electron:name==='./assets.cjs'?require('../desktop/assets.cjs'):require(name),__dirname:path.join(root,'desktop'),console,process});
+  assert.equal(selected,path.join(temporary,'Drift Drive'));assert.ok((await fs.stat(selected)).isDirectory());
+ }finally{await fs.rm(temporary,{recursive:true,force:true});}
 });
