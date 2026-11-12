@@ -460,3 +460,54 @@ test('photo mode freezes physics, traffic, challenge progress and mileage while 
   assert.equal(g.enterPhoto(),true);g.photo.keys.add('KeyW');g.updatePhoto(.1);g.frame();g.frame();assert.equal(c.x,state.x);assert.equal(c.z,state.z);assert.equal(g.cruiseProgress.distance,state.distance);assert.equal(g.cruiseChallenge.next,state.next);assert.equal(g.traffic.aiSteps,state.traffic);assert.equal(g.capturePhoto(),true);assert.equal(g.renderer.lastCamera,g.photo.camera);
   g.leavePhoto();assert.equal(g.photo.active,false);assert.equal(g.renderer.domElement.style.filter,'');g.cancelCruiseChallenge();g.race.active=true;assert.equal(g.enterPhoto(),false);assert.equal(g.openCruisePanel(),false);g.race.active=false;g.setStarted(false);
 });
+
+test('solo grass throws bounded natural dust and clippings only from grounded unpaved tyres',()=>{
+  g.setStarted(true);g.setSplit(false);const c=g.cars[0];let emitted=0;
+  for(let z=80;z<=240&&!emitted;z+=20)for(let x=80;x<=240&&!emitted;x+=20){
+    if(g.pavedSurface(x,z))continue;g.placeCar(c,x,z,0);g.prePhys(c);g.updVisual(c,0);
+    c.vwx=20;c.vwz=0;c.wR=70;c.grassClock=0;emitted=g.updateGrassFX(c,.05);
+  }
+  assert.ok(emitted>0&&emitted<=8);const particles=g.smokeState;
+  const ids=Array.from({length:emitted},(_,n)=>(particles.head-emitted+n+900)%900);
+  assert.ok(ids.some(i=>particles.kind[i]===1));assert.ok(ids.some(i=>particles.kind[i]===2));
+  assert.ok(ids.every(i=>particles.life[i]<2&&particles.alpha[i]>0));assert.equal(particles.life.length,900);
+  const original=particles.head;c.contact=0;assert.equal(g.updateGrassFX(c,.05),0);assert.equal(g.smokeState.head,original);c.contact=1;
+  c.inWater=true;assert.equal(g.updateGrassFX(c,.05),0);c.inWater=false;c.vwx=0;c.wR=0;assert.equal(g.updateGrassFX(c,.05),0);
+  g.placeCar(c,0,0,0);g.updVisual(c,0);c.vwx=20;c.wR=70;assert.equal(g.updateGrassFX(c,.05),0);
+  g.setSplit(true);assert.equal(g.updateGrassFX(c,.05),0);assert.equal(g.smokeMat.uniforms.uSolo.value,0);g.setSplit(false);g.setStarted(false);
+});
+test('solo limiter pops repeat at a bounded rate and retain physics hits between render frames',()=>{
+  g.setStarted(true);g.setSplit(false);g.initAudio();const c=g.cars[0],ac=g.state.AC;
+  g.placeCar(c,0,0,0);Object.assign(c.inp,{thr:1,clutch:true,hb:false});c.rpm=g.P.redline+200;g.prePhys(c);g.step(c,1/240);
+  assert.equal(c.limiterPulse,true);c.cutT=0;c.rpm=g.P.redline-200;c.nextBackfire=0;ac.currentTime=30;const initial=c.backfireCount||0;
+  g.updateBackfire(c);assert.equal(c.backfireCount,initial+1);assert.equal(c.limiterPulse,false);
+  const event=c.backfireEvent;assert.equal(event.source.startedAt,event.at);ac.currentTime=event.at+.02;g.updateSoloFX(0);assert.equal(c.fxFlame.visible,true);
+  for(let n=1;n<=120;n++){ac.currentTime=30+n/60;c.rpm=g.P.redline-40;g.updateBackfire(c);}
+  const pops=c.backfireCount-initial;assert.ok(pops>=7&&pops<=9,'bounded limiter pops: '+pops);
+  const before=c.backfireCount;c.rpm=g.P.redline-500;c.backfireArmed=false;ac.currentTime+=1;g.updateBackfire(c);assert.equal(c.backfireCount,before);
+  c.rpm=g.P.redline;c.shiftT=.1;g.updateBackfire(c);assert.equal(c.backfireCount,before);
+  g.setSplit(true);c.shiftT=0;c.limiterPulse=true;g.updateBackfire(c);assert.equal(c.backfireCount,before);assert.equal(c.limiterPulse,false);
+  g.setSplit(false);g.setStarted(false);c.inp.clutch=false;c.inp.thr=0;
+});
+test('spoilers and separate bumpers switch without duplicate wings, persist and restore after split-screen',()=>{
+  g.setSplit(false);const c=g.cars[0],engine=g.P.engine,grip=g.P.gripR;
+  for(const spoiler of ['none','factory','ducktail','gt']){
+    g.applyPlayerBuild(c,{spoiler,frontBumper:'drift',rearBumper:'street',smokeColor:'#ed5398'});
+    for(const [name,group] of Object.entries(c.bodyOptions.spoiler))assert.equal(group.visible,name===spoiler);
+    assert.equal(c.bodyOptions.frontBumper.drift.visible,true);assert.equal(c.bodyOptions.frontBumper.street.visible,false);assert.equal(c.bodyOptions.rearBumper.street.visible,true);
+  }
+  assert.equal(g.P.engine,engine);assert.equal(g.P.gripR,grip);const saved=JSON.parse(context.localStorage.getItem('dd-builds-v4'))[0];
+  assert.equal(saved.spoiler,'gt');assert.equal(saved.frontBumper,'drift');assert.equal(saved.rearBumper,'street');assert.equal(saved.smokeColor,'#ed5398');
+  const old=g.normalizedBuild({paint:'#284455',kit:'drift'});assert.equal(old.paint,'#284455');assert.equal(old.spoiler,'ducktail');assert.equal(old.smokeColor,'#dce0e5');
+  const invalid=g.normalizedBuild({spoiler:'toString',frontBumper:'bad',smokeColor:'red'});assert.equal(invalid.spoiler,'factory');assert.equal(invalid.frontBumper,'factory');assert.equal(invalid.smokeColor,'#dce0e5');
+  g.setSplit(true);assert.equal(c.factorySpoiler.visible,true);assert.equal(c.bodyOptions.spoiler.gt.visible,false);assert.equal(c.bodyOptions.frontBumper.drift.visible,false);
+  g.setSplit(false);assert.equal(c.factorySpoiler.visible,false);assert.equal(c.bodyOptions.spoiler.gt.visible,true);assert.equal(c.bodyOptions.frontBumper.drift.visible,true);
+});
+test('custom tyre smoke uses the chosen colour while grass remains natural and split-screen stays neutral',()=>{
+  g.setSplit(false);const c=g.cars[0],p=new Three.Vector3(0,1,0);g.applyPlayerBuild(c,{smokeColor:'#ed5398'});
+  const index=g.smokeState.head;g.emit(c,p,1);const expected=new Three.Color('#ed5398');
+  for(const [k,v] of [expected.r,expected.g,expected.b].entries())assert.ok(Math.abs(g.smokeState.color[index*3+k]-v)<1e-6);
+  const dust=g.smokeState.head;g.emit(c,p,1,1);assert.ok(Math.abs(g.smokeState.color[dust*3]-.43)<1e-6);
+  g.setSplit(true);const split=g.smokeState.head;g.emit(c,p,1);assert.ok(Math.abs(g.smokeState.color[split*3]-.86)<1e-6);assert.equal(g.smokeMat.uniforms.uSolo.value,0);
+  g.setSplit(false);g.updSmoke(10);g.updSmoke(0);assert.ok(g.smokeState.alpha.every(a=>a===0));
+});

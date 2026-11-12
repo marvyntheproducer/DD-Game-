@@ -1,4 +1,4 @@
-# Drift Drive V4 — Cruise Life
+# Drift Drive V4.1 — Solo Style
 
 A Three.js / Web Audio driving game with free roam, local split-screen, engine
 swaps, drift tuning, and custom road races. Locations are fictional and inspired
@@ -18,6 +18,37 @@ python3 -m http.server 8080
 
 Open http://localhost:8080/Drift%20Drive/ and choose **Solo Run** or **Split Screen**. Startup now reports
 its current stage and terrain percentage while building the larger world.
+
+## V4.1 — Solo Style
+
+The new additions are available in **Solo Run**:
+
+- **Grass dust and clippings:** grounded rear tyres kick up muted brown dust and
+  small green clippings on unpaved, grassy ground when moving or spinning.
+  Emission follows tyre position, speed and wheelspin; it stops on asphalt,
+  in water, in the air and on the snowy highlands. It shares the existing
+  900-particle pool and reduces emission in the lower solo graphics tier.
+- **Redline backfires:** held throttle at the rev limiter produces repeated
+  restrained exhaust pops/flames, capped at roughly four per second. Limiter
+  hits are latched by physics so a short cut between rendered frames is not
+  missed. Audio and flame share the same event timestamp; gear shifts retain
+  their existing drivetrain behavior.
+- **Spoilers:** clean trunk, factory wing, painted ducktail or GT wing.
+- **Separate bumpers:** factory, street lip/spats or deeper drift front bumper
+  and rear diffuser. Choose the front and rear independently.
+- **Tyre-smoke colour:** choose any colour with a live colour picker. Grass
+  dust/clippings keep their natural colours.
+
+Open **J → Your build** (or **P → Wheels, paint & personal build**) for these
+appearance options. Changes preview immediately and save with the existing
+V4 build on this device. Old builds load with sensible defaults; other saved
+V4 settings and exploration progress are preserved. Bodywork choices are
+cosmetic and do not alter grip, power or collision dimensions.
+
+Split-screen uses the factory wing/bumpers and neutral tyre smoke; the new
+grass particles and redline flames/pops are disabled. Returning to solo
+restores the saved appearance. All body variants are built once and switched
+by visibility, with no model downloads or per-change geometry rebuilding.
 
 ## V4 — Cruise Life
 
@@ -298,7 +329,9 @@ handling presets, synchronized solo backfire, adaptive solo graphics and analog
 instrument updates. V4 checks also cover stop/driveway connectivity, weather budgets,
 per-player build persistence, meet collisions/arrivals, optional-run completion,
 exploration unlocks, embedded radio lifecycle, personal music and photo-mode
-freezing/export. Three.js geometry/math are real; DOM, Canvas, GPU and Web
+freezing/export. V4.1 additionally checks surface-aware grass emission,
+particle limits/colours, sustained limiter backfires, body-option persistence
+and solo/split restoration. Three.js geometry/math are real; DOM, Canvas, GPU and Web
 Audio nodes are stubbed. Tests do not establish actual browser FPS, rendered
 appearance or subjective handling/audio quality. Check those on the target
 computer, especially split-screen and mountain approaches.
