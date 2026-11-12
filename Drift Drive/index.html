@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Drift Drive V4 — Cruise Life</title>
+<title>Drift Drive V4.1 — Solo Style</title>
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
 #hud{position:fixed;right:28px;bottom:24px;color:#fff;text-align:right;text-shadow:0 2px 6px #000a;pointer-events:none}
@@ -45,7 +45,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:syste
 </head>
 <body>
 <div id="overlay" role="dialog" aria-label="Drift Drive main menu">
-<div class="arcade-kicker">JAPAN • CRUISE LIFE • V4</div><div class="arcade-logo">DRIFT <span>DRIVE</span></div><div class="arcade-tag">山道 — THE ROAD IS YOURS</div>
+<div class="arcade-kicker">JAPAN • CRUISE LIFE • V4.1</div><div class="arcade-logo">DRIFT <span>DRIVE</span></div><div class="arcade-tag">山道 — THE ROAD IS YOURS</div>
 <div id="ovtext">Building rural Japan…</div><small id="ovsub"></small>
 <div id="menu-controls"><div class="mode-grid">
 <button class="arcade-mode" id="menu-solo"><span class="slot">01 / ONE PLAYER</span><strong>SOLO RUN</strong><small>Street racing or drifting.<br>Detailed lighting, exhaust flames & driving effects.</small></button>
@@ -8500,8 +8500,9 @@ function buildCar(color){
   // Bonnet shut lines, windscreen wipers and modest factory-style rear wing.
   for(const side of [-1,1])beam([.99,byt(.99)+.015,.57*side],[2.13,byt(2.13)+.015,.65*side],.0035,black);
   for(const side of [-1,1])beam([.91,.92,.40*side],[.66,1.065,.16*side],.006,black);
-  for(const side of [-1,1])add(new THREE.BoxGeometry(.16,.17,.035),paintMat,-1.98,.925,.56*side);
-  add(new THREE.BoxGeometry(.27,.035,1.46),paintMat,-1.99,1.022,0,0,0,-.035);
+  const factorySpoiler=new THREE.Group();carBody.add(factorySpoiler);
+  for(const side of [-1,1])factorySpoiler.add(add(new THREE.BoxGeometry(.16,.17,.035),paintMat,-1.98,.925,.56*side));
+  factorySpoiler.add(add(new THREE.BoxGeometry(.27,.035,1.46),paintMat,-1.99,1.022,0,0,0,-.035));
   add(new THREE.BoxGeometry(.15,.035,1.56),black,2.19,.245,0);
   add(new THREE.BoxGeometry(.04,.13,1.03),black,2.264,.43,0);
   const cooler=[];for(let i=0;i<6;i++)cooler.push(new THREE.BoxGeometry(.025,.009,.77).translate(2.287,.38+i*.018,0));carBody.add(new THREE.Mesh(mergedGeometry(cooler),chrome));
@@ -8531,7 +8532,7 @@ function buildCar(color){
   add(new THREE.PlaneGeometry(.47,.105),new THREE.MeshBasicMaterial({map:badge}),-2.293,.718,0,0,-Math.PI/2,0);
   const plateCanvas=document.createElement('canvas');plateCanvas.width=256;plateCanvas.height=128;const pg=plateCanvas.getContext('2d');pg.fillStyle='#e7e6d8';pg.fillRect(0,0,256,128);pg.fillStyle='#294a3d';pg.textAlign='center';pg.font='22px sans-serif';pg.fillText('SHONAN 530',128,36);pg.font='bold 53px sans-serif';pg.fillText('14-14',128,100);
   const plate=new THREE.CanvasTexture(plateCanvas);plate.colorSpace=THREE.SRGBColorSpace;const plateMat=new THREE.MeshBasicMaterial({map:plate});
-  add(new THREE.PlaneGeometry(.33,.165),plateMat,2.291,.29,0,0,Math.PI/2,0);add(new THREE.PlaneGeometry(.33,.165),plateMat,-2.294,.47,0,0,-Math.PI/2,0);
+  const frontPlate=add(new THREE.PlaneGeometry(.33,.165),plateMat,2.291,.29,0,0,Math.PI/2,0);add(new THREE.PlaneGeometry(.33,.165),plateMat,-2.294,.47,0,0,-Math.PI/2,0);
   add(new THREE.CylinderGeometry(.052,.052,.19,14).rotateZ(Math.PI/2),chrome,-2.29,.29,.56);
   add(new THREE.CircleGeometry(.041,14),black,-2.392,.29,.56,0,-Math.PI/2,0);
   carBody.traverse(o=>{if(o.isMesh)o.castShadow=true;});
@@ -8559,7 +8560,7 @@ function buildCar(color){
   const sh=new THREE.Mesh(new THREE.PlaneGeometry(5.6,2.6).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthWrite:false}));
   sh.position.y=0.03;carRoot.add(sh);
   scene.add(carRoot);
-  return {root:carRoot,body:carBody,wheels,tailMat,headMat:projector,windowShell,paint:paintMat};
+  return {root:carRoot,body:carBody,wheels,tailMat,headMat:projector,windowShell,factorySpoiler,frontPlate,paint:paintMat};
 }
 
 // ================= physics =================
@@ -8580,7 +8581,7 @@ const cars=[];let car1=null,car2=null;
 function makeCar(color,ctrl){const m=buildCar(color);
   const c={x:0,z:0,y:0,vyv:0,gPrev:0,contact:1,yaw:0,vwx:0,vwz:0,r:0,wR:0,gear:1,rpm:IDLE,shiftT:0,shiftCooldown:0,shiftFromRPM:IDLE,driveBlend:1,driveTorque:0,kickTimer:0,clutchHeld:0,wasClutch:false,kickTorque:0,rawSteer:0,steer:0,axF:0,ayF:0,vx:0,vy:0,
     muF:1,muR:1,surfR:1,gfx:0,gfz:0,inWater:false,slideR:0,spool:0,cutT:0,limT:0,lastSpool:0,hit:0,land:0,susp:0,suspV:0,frozen:false,
-    inp:{thr:0,brk:0,hb:false,clutch:false},ctrl,padPrev:[],root:m.root,body:m.body,wheels:m.wheels,tailMat:m.tailMat,headMat:m.headMat,windowShell:m.windowShell,paint:m.paint,skLast:[null,null],
+    inp:{thr:0,brk:0,hb:false,clutch:false},ctrl,padPrev:[],root:m.root,body:m.body,wheels:m.wheels,tailMat:m.tailMat,headMat:m.headMat,windowShell:m.windowShell,factorySpoiler:m.factorySpoiler,frontPlate:m.frontPlate,paint:m.paint,skLast:[null,null],
     cam:new THREE.PerspectiveCamera(62,1,0.1,2000),camYaw:0,camSnap:true,camMode:0,q:new THREE.Quaternion(),qSnap:true,prevThr:0,au:null,hud:null};return initCarFX(c);}
 function prePhys(c){const fx=Math.cos(c.yaw),fz=-Math.sin(c.yaw);
   const support=supportingSurface(c.x,c.z);
@@ -8652,7 +8653,7 @@ function step(c,h){
     c.rpm+=(target-c.rpm)*Math.min(1,h*24);c.cutT=0;c.driveBlend=0;
   }else if(clutchOpen){
     const target=IDLE+inp.thr*(P.redline+250-IDLE);
-    if(c.rpm>P.redline+90&&c.cutT<=0)c.cutT=.045;
+    if(c.rpm>P.redline+90&&c.cutT<=0){c.cutT=.045;c.limiterPulse=true;}
     if(c.cutT>0)c.rpm=Math.max(IDLE,c.rpm-4200*h);
     else c.rpm+=(target-c.rpm)*Math.min(1,h*(inp.thr>0?6:2.5));
     c.driveBlend=1;
@@ -8662,7 +8663,7 @@ function step(c,h){
     const slip=clamp((launchRPM-wheelRPM)/Math.max(900,launchRPM-IDLE),0,1);
     const targetRPM=Math.max(IDLE,wheelRPM,slip>0?launchRPM:IDLE);
     const rpm=slip>.05?c.rpm+clamp(targetRPM-c.rpm,-6500*h,4500*h):targetRPM;
-    if(rpm>P.redline+90&&c.cutT<=0)c.cutT=.045;
+    if(rpm>P.redline+90&&c.cutT<=0){c.cutT=.045;c.limiterPulse=true;}
     const limit=c.cutT>0?0:1-sstep(P.redline-70,P.redline+120,rpm);
     let te=engineTorque(rpm,c.spool)*inp.thr*limit;
     if(slip<.01)te-=(1-inp.thr)*P.engineBrake*(.4+.6*rpm/P.redline);
@@ -8795,7 +8796,7 @@ function readInput(c,dt,gi){const k=c.ctrl,inp=c.inp;
   const correction=ASSIST?beta*P.assist*(1-.35*sliding)*(1-.7*Math.abs(st))*kickFade:0;
   const tgt=clamp(st*lock+correction,-MAXST,MAXST),rate=(pad?9:3.4)*dt;
   c.steer+=clamp(tgt-c.steer,-rate,rate);}
-function placeCar(c,x,z,yaw){if(cruiseChallenge.active)cancelCruiseChallenge('Run reset — restart whenever you like.');c.x=x;c.z=z;c.yaw=yaw;c.vwx=c.vwz=c.r=c.wR=0;c.gear=1;c.shiftT=0;c.shiftCooldown=0;c.driveBlend=1;c.driveTorque=0;c.cutT=0;c.limT=0;c.rpm=IDLE;c.spool=0;c.lastSpool=0;c.turboLiftArmed=false;c.turboCooldown=0;c.backfireEvent=null;c.backfireArmed=false;c.lastFxGear=1;c.lastFxCut=false;c.nextBackfire=0;c.axF=0;c.ayF=0;c.steer=0;c.kickTimer=0;c.kickTorque=0;c.kickEnergy=0;c.tireHeat=0;c.smokeClock=0;c.burnTime=0;c.heatBursts=0;c.heatFireUntil=0;c.clutchHeld=0;c.wasClutch=false;c.surfaceTimer=0;c.y=c.gPrev=ground(x,z);c.rideOffset=0;c.vyv=0;c.contact=1;c.camSnap=true;c.qSnap=true;c.skLast=[null,null];}
+function placeCar(c,x,z,yaw){if(cruiseChallenge.active)cancelCruiseChallenge('Run reset — restart whenever you like.');c.x=x;c.z=z;c.yaw=yaw;c.vwx=c.vwz=c.r=c.wR=0;c.gear=1;c.shiftT=0;c.shiftCooldown=0;c.driveBlend=1;c.driveTorque=0;c.cutT=0;c.limT=0;c.rpm=IDLE;c.spool=0;c.lastSpool=0;c.turboLiftArmed=false;c.turboCooldown=0;c.backfireEvent=null;c.backfireArmed=false;c.lastFxGear=1;c.lastFxCut=false;c.limiterPulse=false;c.nextBackfire=0;c.axF=0;c.ayF=0;c.steer=0;c.kickTimer=0;c.kickTorque=0;c.kickEnergy=0;c.tireHeat=0;c.smokeClock=0;c.grassClock=0;c.burnTime=0;c.heatBursts=0;c.heatFireUntil=0;c.clutchHeld=0;c.wasClutch=false;c.surfaceTimer=0;c.y=c.gPrev=ground(x,z);c.rideOffset=0;c.vyv=0;c.contact=1;c.camSnap=true;c.qSnap=true;c.skLast=[null,null];}
 function resetCar(c,idx){let i=idx;
   if(i===undefined){const q=nearestRoad(c.x,c.z);if(q)i=q.i;else{let bd=1e18;for(let j=0;j<N;j++){const d=(RX[j]-c.x)**2+(RZ[j]-c.z)**2;if(d<bd){bd=d;i=j;}}}}
   placeCar(c,RX[i],RZ[i],Math.atan2(-TZa[i],TXa[i]));}
@@ -8833,18 +8834,24 @@ document.getElementById('garage-style').onclick=()=>openCruisePanel('build');
 document.getElementById('treset').onclick=()=>{selectEngine(P.engine,'factory');};
 
 // ================= smoke + skidmarks =================
-const PMAX=900,pP=new Float32Array(PMAX*3),pS=new Float32Array(PMAX),pA=new Float32Array(PMAX),pV=new Float32Array(PMAX*3),pL=new Float32Array(PMAX),pML=new Float32Array(PMAX);let pHead=0;
-const smokeGeo=new THREE.BufferGeometry();smokeGeo.setAttribute('position',new THREE.BufferAttribute(pP,3));smokeGeo.setAttribute('size',new THREE.BufferAttribute(pS,1));smokeGeo.setAttribute('alpha',new THREE.BufferAttribute(pA,1));
-const smokeMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{uScale:{value:innerHeight}},
-  vertexShader:`attribute float size;attribute float alpha;varying float vA;uniform float uScale;void main(){vA=alpha;vec4 mv=modelViewMatrix*vec4(position,1.);gl_PointSize=size*uScale/max(0.1,-mv.z);gl_Position=projectionMatrix*mv;}`,
-  fragmentShader:`varying float vA;void main(){vec2 c=gl_PointCoord-.5;float a=smoothstep(.5,.05,length(c))*vA;if(a<.004)discard;gl_FragColor=vec4(vec3(.86,.86,.88),a);}`});
+const PMAX=900,pP=new Float32Array(PMAX*3),pS=new Float32Array(PMAX),pA=new Float32Array(PMAX),pV=new Float32Array(PMAX*3),pL=new Float32Array(PMAX),pML=new Float32Array(PMAX),pC=new Float32Array(PMAX*3),pK=new Float32Array(PMAX);let pHead=0;
+const particleTint=new THREE.Color();
+const smokeGeo=new THREE.BufferGeometry();smokeGeo.setAttribute('position',new THREE.BufferAttribute(pP,3));smokeGeo.setAttribute('size',new THREE.BufferAttribute(pS,1));smokeGeo.setAttribute('alpha',new THREE.BufferAttribute(pA,1));smokeGeo.setAttribute('color',new THREE.BufferAttribute(pC,3));smokeGeo.setAttribute('kind',new THREE.BufferAttribute(pK,1));
+const smokeMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{uScale:{value:innerHeight},uSolo:{value:1}},
+  vertexShader:`attribute float size;attribute float alpha;attribute vec3 color;attribute float kind;varying float vA;varying vec3 vColor;varying float vKind;uniform float uScale;uniform float uSolo;void main(){vA=kind>.5&&uSolo<.5?0.:alpha;vColor=uSolo>.5?color:vec3(.86,.86,.88);vKind=kind;vec4 mv=modelViewMatrix*vec4(position,1.);gl_PointSize=clamp(size*uScale/max(0.1,-mv.z),1.,180.);gl_Position=projectionMatrix*mv;}`,
+  fragmentShader:`varying float vA;varying vec3 vColor;varying float vKind;void main(){vec2 c=gl_PointCoord-.5;float shape=vKind>1.5?1.-smoothstep(.24,.5,length(c*vec2(2.8,1.))):1.-smoothstep(.05,.5,length(c));float a=shape*vA;if(a<.004)discard;gl_FragColor=vec4(vColor,a);}`});
 const smoke=new THREE.Points(smokeGeo,smokeMat);smoke.frustumCulled=false;scene.add(smoke);
-function emit(c,p,amt){const i=pHead;pHead=(pHead+1)%(split?640:PMAX);pP[i*3]=p.x+(Math.random()-.5)*.4;pP[i*3+1]=p.y+0.25;pP[i*3+2]=p.z+(Math.random()-.5)*.4;
-  pV[i*3]=c.vwx*0.25+(Math.random()-.5)*1.5;pV[i*3+1]=0.6+Math.random()*0.8;pV[i*3+2]=c.vwz*0.25+(Math.random()-.5)*1.5;pML[i]=pL[i]=2.2+Math.random()*1.8;pS[i]=0.8;pA[i]=(!split&&soloQuality.tier===1?.56:.24)*amt;}
+function emit(c,p,amt,kind=0){const i=pHead;pHead=(pHead+1)%(split?640:PMAX);pK[i]=kind;
+  if(kind===0&&!split)particleTint.set(c.build?.smokeColor||'#dce0e5');else if(kind===1)particleTint.setRGB(.43,.37,.24);else if(kind===2)particleTint.setRGB(.25,.38,.12);else particleTint.setRGB(.86,.86,.88);
+  pC[i*3]=particleTint.r;pC[i*3+1]=particleTint.g;pC[i*3+2]=particleTint.b;
+  pP[i*3]=p.x+(Math.random()-.5)*.4;pP[i*3+1]=p.y+0.25;pP[i*3+2]=p.z+(Math.random()-.5)*.4;
+  pV[i*3]=c.vwx*0.25+(Math.random()-.5)*1.5;pV[i*3+1]=0.6+Math.random()*0.8;pV[i*3+2]=c.vwz*0.25+(Math.random()-.5)*1.5;pML[i]=pL[i]=2.2+Math.random()*1.8;pS[i]=0.8;pA[i]=(!split&&soloQuality.tier===1?.56:.24)*amt;
+  if(kind){pML[i]=pL[i]=kind===2?.65+Math.random()*.45:1.2+Math.random()*.65;pS[i]=kind===2?.10:.5;pA[i]=(kind===2?.8:.28)*amt;pV[i*3+1]=kind===2?1.8+Math.random()*1.8:.35+Math.random()*.5;}
+}
 function updSmoke(dt){for(let i=0;i<PMAX;i++){if(pL[i]<=0){pA[i]=0;continue;}pL[i]-=dt;const t=1-pL[i]/pML[i];
     const dmp=Math.exp(-dt*1.5);pV[i*3]*=dmp;pV[i*3+2]*=dmp;pV[i*3+1]*=Math.exp(-dt*0.8);
-    pP[i*3]+=pV[i*3]*dt;pP[i*3+1]+=pV[i*3+1]*dt;pP[i*3+2]+=pV[i*3+2]*dt;pS[i]=.65+t*(split?3.8:5.2);pA[i]*=Math.exp(-dt*(split?.9:.55));}
-  smokeGeo.attributes.position.needsUpdate=smokeGeo.attributes.size.needsUpdate=smokeGeo.attributes.alpha.needsUpdate=true;}
+    pP[i*3]+=pV[i*3]*dt;pP[i*3+1]+=pV[i*3+1]*dt;pP[i*3+2]+=pV[i*3+2]*dt;pS[i]=pK[i]>1.5?.10*(1-t*.5):pK[i]>.5?.45+t*2.2:.65+t*(split?3.8:5.2);if(pK[i]>1.5)pV[i*3+1]-=dt*7;pA[i]*=Math.exp(-dt*(split?.9:.55));}
+  smokeGeo.attributes.position.needsUpdate=smokeGeo.attributes.size.needsUpdate=smokeGeo.attributes.alpha.needsUpdate=smokeGeo.attributes.color.needsUpdate=smokeGeo.attributes.kind.needsUpdate=true;}
 const SKMAX=6000,skP=new Float32Array(SKMAX*18);let skHead=0,skCount=0;
 const skGeo=new THREE.BufferGeometry();skGeo.setAttribute('position',new THREE.BufferAttribute(skP,3));
 const skMesh=new THREE.Mesh(skGeo,new THREE.MeshBasicMaterial({color:0x111111,transparent:true,opacity:0.55,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-5,polygonOffsetUnits:-5}));
@@ -8942,11 +8949,14 @@ function triggerBackfire(c){
   return true;
 }
 function updateBackfire(c){
-  if(!started||split){c.backfireArmed=false;return;}
+  if(!started||split){c.backfireArmed=false;c.limiterPulse=false;return;}
   if(c.inp.thr>.55&&c.rpm>3500)c.backfireArmed=true;
   const lift=c.backfireArmed&&c.inp.thr<.18&&c.rpm>3200;
   const shifted=c.lastFxGear!==undefined&&c.gear>c.lastFxGear&&c.rpm>3300&&c.inp.thr>.4;
-  const limiter=c.cutT>0&&!c.lastFxCut&&c.inp.thr>.7&&c.rpm>P.redline*.9;
+  // Repeat restrained pops while holding redline, including soft-limiter operation.
+  // triggerBackfire shares one audio/visual timestamp and bounds the rate to ~4/s.
+  const limiter=c.inp.thr>.7&&c.shiftT<=0&&(c.limiterPulse||c.cutT>0||c.rpm>=P.redline-80);
+  c.limiterPulse=false;
   if(lift||shifted||limiter)triggerBackfire(c);
   if(lift||c.rpm<3000)c.backfireArmed=false;
   c.lastFxGear=c.gear;c.lastFxCut=c.cutT>0;
@@ -9455,7 +9465,20 @@ function updVisual(c,dt){
   for(let k=0;k<2;k++){wp.set(-B,.025,k?TRACK/2:-TRACK/2);c.root.localToWorld(wp);
     const amount=clamp((c.slideR-2)/14,0,1);addSkid(c,k,wp,amount>.10&&onRoad);
     if(c.contact)for(let n=0;n<count;n++)emit(c,wp,amount*.75);}
-  return onRoad;}
+  updateGrassFX(c,dt);return onRoad;}
+function updateGrassFX(c,dt){
+  const speed=Math.hypot(c.vwx,c.vwz),energy=clamp((Math.max(speed,Math.abs(c.wR*R)*.45)-2)/15,0,1);
+  if(split||!started||!c.contact||c.inWater||dt<=0||energy<=0){c.grassClock=0;return 0;}
+  c.grassClock=Math.min(2,(c.grassClock||0)+Math.min(dt,.05)*(soloQuality.tier?22:12)*energy);
+  const count=Math.min(2,Math.floor(c.grassClock));c.grassClock-=count;if(!count)return 0;
+  let emitted=0;
+  for(const side of [-1,1]){wp.set(-B,.025,side*TRACK/2);c.root.localToWorld(wp);
+    if(pavedSurface(wp.x,wp.z))continue;const h=ground(wp.x,wp.z);
+    if(h<.8||h>720||Math.abs(wp.y-h)>.4)continue;
+    wp.y=h+.025;
+    for(let n=0;n<count;n++){emit(c,wp,energy,1);emit(c,wp,energy,2);emitted+=2;}
+  }return emitted;
+}
 function cameraSpring(position,velocity,target,omega,dt){const d=position-target,t=(velocity+omega*d)*dt,e=Math.exp(-omega*dt);return [target+(d+t)*e,(velocity-omega*t)*e];}
 function updCam(c,dt,aspect){
   const cam=c.cam,yv=c.root.position.y,speed=Math.hypot(c.vwx,c.vwz),energy=(!reducedMotion&&P.effects)?P.cameraEnergy:0;
@@ -9524,7 +9547,7 @@ function addJDMDetails(c){
   updateCarDetail(c);
 }
 function updateCarDetail(c){const detail=!split&&soloQuality.tier===1;if(c.jdm)c.jdm.visible=detail;for(const m of c.detailWheels||[])m.visible=detail;if(c.interior)c.interior.visible=detail||c.camMode===3;if(c.aero)c.aero.visible=detail&&c.build?.kit==='drift';if(c.jdm)c.jdm.visible=detail&&c.build?.kit!=='stock';
-  c.paint.envMapIntensity=detail?1.12:.85;c.paint.roughness=detail?.23:.27;c.paint.clearcoat=detail?1:.85;}
+  updateBodyOptions(c);c.paint.envMapIntensity=detail?1.12:.85;c.paint.roughness=detail?.23:.27;c.paint.clearcoat=detail?1:.85;}
 function updateTyreHeatFX(c,dt){
   const hot=!split&&started&&c.contact&&c.tireHeat>.8&&Math.abs(c.wR*R-c.vx)>8;
   c.burnTime=clamp((c.burnTime||0)+(hot?dt:-dt*2),0,15);
@@ -9549,7 +9572,7 @@ function applyRenderQuality(){
   scene.fog.near=detail?300:220;scene.fog.far=detail?1800:1400;
   for(const material of roadRenderMats){const next=detail?roadDetailNormal:null;if(material.normalMap!==next){material.normalMap=next;material.normalScale.set(.32,.32);material.needsUpdate=true;}}
   speedCanvas.width=innerWidth;speedCanvas.height=innerHeight;
-  smokeMat.uniforms.uScale.value=innerHeight*renderer.getPixelRatio();if(cruiseReady)applyCruiseEnvironment();
+  smokeMat.uniforms.uScale.value=innerHeight*renderer.getPixelRatio();smokeMat.uniforms.uSolo.value=split?0:1;if(cruiseReady)applyCruiseEnvironment();
 }
 function updateSoloFX(dt){
   const enabled=started&&!split,c=car1;
@@ -9690,7 +9713,7 @@ function wheelGeometry(name){if(wheelStyleGeometry.has(name))return wheelStyleGe
   if(name==='dish')geometry=new THREE.RingGeometry(.055,.198,24);
   else{const count=name==='five'?5:6,parts=[];for(let k=0;k<count;k++)parts.push(new THREE.BoxGeometry(.17,.04,.025).translate(.10,0,0).rotateZ(k/count*Math.PI*2));geometry=mergedGeometry(parts);}
   wheelStyleGeometry.set(name,geometry);return geometry;}
-function normalizedBuild(raw={},color='#dfe3e8'){const b={paint:/^#[0-9a-f]{6}$/i.test(raw.paint)?raw.paint:color,wheels:['six','five','dish'].includes(raw.wheels)?raw.wheels:'six',ride:['stock','low','cruise'].includes(raw.ride)?raw.ride:'stock',kit:['stock','street','drift'].includes(raw.kit)?raw.kit:'street',exhaust:['mellow','sport','track'].includes(raw.exhaust)?raw.exhaust:'sport',interior:['classic','red','tan'].includes(raw.interior)?raw.interior:'classic',decal:['works','none','postcard'].includes(raw.decal)?raw.decal:'works'};if(b.decal==='postcard'&&Object.keys(cruiseProgress.visited).length<3)b.decal='works';return b;}
+function normalizedBuild(raw={},color='#dfe3e8'){const b={paint:/^#[0-9a-f]{6}$/i.test(raw.paint)?raw.paint:color,wheels:['six','five','dish'].includes(raw.wheels)?raw.wheels:'six',ride:['stock','low','cruise'].includes(raw.ride)?raw.ride:'stock',kit:['stock','street','drift'].includes(raw.kit)?raw.kit:'street',exhaust:['mellow','sport','track'].includes(raw.exhaust)?raw.exhaust:'sport',interior:['classic','red','tan'].includes(raw.interior)?raw.interior:'classic',decal:['works','none','postcard'].includes(raw.decal)?raw.decal:'works',spoiler:['none','factory','ducktail','gt'].includes(raw.spoiler)?raw.spoiler:raw.kit==='drift'?'ducktail':'factory',frontBumper:['factory','street','drift'].includes(raw.frontBumper)?raw.frontBumper:'factory',rearBumper:['factory','street','drift'].includes(raw.rearBumper)?raw.rearBumper:'factory',smokeColor:/^#[0-9a-f]{6}$/i.test(raw.smokeColor)?raw.smokeColor:'#dce0e5'};if(b.decal==='postcard'&&Object.keys(cruiseProgress.visited).length<3)b.decal='works';return b;}
 function savePlayerBuild(c){personalBuilds[c.playerSlot]={...c.build};try{localStorage.setItem('dd-builds-v4',JSON.stringify(personalBuilds));}catch(e){console.warn(e);}}
 function updateBuildBanner(c){if(!c.build||!c.jdm)return;const mesh=c.jdm.children.find(m=>m.material?.map);if(!mesh)return;if(c.bannerStyle===c.build.decal)return;c.bannerStyle=c.build.decal;mesh.visible=c.build.decal!=='none';if(!mesh.visible)return;
   const canvas=document.createElement('canvas');canvas.width=512;canvas.height=64;const g=canvas.getContext('2d');g.fillStyle='#13202a';g.fillRect(0,0,512,64);g.fillStyle=c.build.decal==='postcard'?'#e5c989':'#e8e8d7';g.font='bold 29px monospace';g.textAlign='center';g.fillText(c.build.decal==='postcard'?'SHIOSAI CRUISE CLUB':'湘南  /  DD WORKS',256,43);const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;mesh.material.map?.dispose();mesh.material.map=texture;mesh.material.needsUpdate=true;}
@@ -9698,11 +9721,33 @@ function applyPlayerBuild(c,raw,save=true){const build=normalizedBuild({...c.bui
   for(const wheel of c.wheels){wheel.rimMaterial.color.setHex(colors[build.wheels]);wheel.spokeMesh.geometry=wheelGeometry(build.wheels);}
   if(c.seatMaterial)c.seatMaterial.color.setHex({classic:0x1c242b,red:0x842e31,tan:0x8b7660}[build.interior]);updateBuildBanner(c);updateCarDetail(c);if(c.aero)c.aero.visible=!split&&soloQuality.tier===1&&build.kit==='drift';
   if(c===car1){P.color=build.paint;const input=document.getElementById('tcolor');input.value=P.color;}if(save)savePlayerBuild(c);return build;}
+function initBodyOptions(c,dark){
+  c.bodyOptions={spoiler:{factory:c.factorySpoiler},frontBumper:{},rearBumper:{}};
+  const variant=(category,name,paintBoxes,trimBoxes=[])=>{
+    const group=new THREE.Group();
+    for(const [boxes,mat] of [[paintBoxes,c.paint],[trimBoxes,dark]])if(boxes.length){
+      const mesh=new THREE.Mesh(mergedGeometry(boxes.map(([x,y,z,w,h,d,tilt=0])=>new THREE.BoxGeometry(w,h,d).rotateZ(tilt).translate(x,y,z))),mat);
+      mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);
+    }c.body.add(group);c.bodyOptions[category][name]=group;
+  };
+  variant('spoiler','ducktail',[[-2.11,.91,0,.24,.12,1.48,-.16]]);
+  variant('spoiler','gt',[],[[-1.96,1.29,0,.36,.045,1.76,-.06],[-1.96,1.27,-.89,.37,.19,.025],[-1.96,1.27,.89,.37,.19,.025],[-1.98,1.03,-.51,.10,.48,.045],[-1.98,1.03,.51,.10,.48,.045]]);
+  variant('frontBumper','street',[[2.29,.24,0,.23,.10,1.69],[2.28,.37,-.77,.16,.24,.13],[2.28,.37,.77,.16,.24,.13]],[[2.36,.18,0,.19,.035,1.79]]);
+  variant('frontBumper','drift',[[2.34,.24,0,.27,.12,1.76],[2.31,.42,-.78,.22,.26,.15],[2.31,.42,.78,.22,.26,.15],[2.32,.51,0,.19,.055,1.45]],[[2.39,.17,0,.23,.035,1.86],[2.43,.38,-.69,.025,.11,.16],[2.43,.38,.69,.025,.11,.16]]);
+  variant('rearBumper','street',[[-2.28,.25,-.72,.20,.16,.25],[-2.28,.25,.72,.20,.16,.25]],[[-2.30,.23,0,.17,.09,.96]]);
+  variant('rearBumper','drift',[[-2.30,.27,-.74,.23,.20,.25],[-2.30,.27,.74,.23,.20,.25]],[[-2.32,.21,0,.25,.08,1.19],...[-.42,-.21,0,.21,.42].map(z=>[-2.35,.18,z,.29,.13,.022])]);
+}
+function updateBodyOptions(c){
+  if(!c.bodyOptions||!c.build)return;
+  const front=split?'factory':c.build.frontBumper;c.frontPlate.position.set(front==='drift'?2.49:front==='street'?2.425:2.291,front==='drift'?.39:front==='street'?.37:.29,0);
+  for(const [category,options] of Object.entries(c.bodyOptions))
+    for(const [name,group] of Object.entries(options))group.visible=split?category==='spoiler'&&name==='factory':c.build[category]===name;
+}
 function initCruiseCar(c){
   c.playerSlot=Math.min(cars.length,1);c.seatMaterial=new THREE.MeshStandardMaterial({color:0x1c242b,roughness:.9});const dark=new THREE.MeshStandardMaterial({color:0x151d25,roughness:.8});c.interior=new THREE.Group();
   for(const z of [-.32,.32]){const base=new THREE.Mesh(new THREE.BoxGeometry(.48,.11,.37),c.seatMaterial);base.position.set(-.30,.60,z);const back=new THREE.Mesh(new THREE.BoxGeometry(.11,.43,.34),c.seatMaterial);back.position.set(-.53,.83,z);c.interior.add(base,back);}
   const dash=new THREE.Mesh(new THREE.BoxGeometry(.25,.16,1.24),dark);dash.position.set(.45,.83,0);c.interior.add(dash);const wheel=new THREE.Mesh(new THREE.TorusGeometry(.105,.018,6,16).rotateY(Math.PI/2),dark);wheel.position.set(.25,.87,.33);c.interior.add(wheel);const console=new THREE.Mesh(new THREE.BoxGeometry(.4,.15,.13),dark);console.position.set(-.05,.60,0);c.interior.add(console);c.body.add(c.interior);
-  c.aero=new THREE.Group();const lip=new THREE.Mesh(new THREE.BoxGeometry(.24,.04,1.76),dark);lip.position.set(2.22,.19,0);c.aero.add(lip);const duck=new THREE.Mesh(new THREE.BoxGeometry(.18,.10,1.5),c.paint);duck.position.set(-2.10,.91,0);c.aero.add(duck);c.body.add(c.aero);
+  c.aero=new THREE.Group();for(const side of [-1,1]){const skirt=new THREE.Mesh(new THREE.BoxGeometry(2.02,.04,.14),dark);skirt.position.set(-.10,.18,side*.91);c.aero.add(skirt);}c.body.add(c.aero);initBodyOptions(c,dark);
   c.lights=new THREE.Group();c.headlights=[];for(const side of [-1,1]){const lamp=new THREE.SpotLight(0xffe7c3,0,65,.36,.65,2);lamp.position.set(2.10,.62,side*.59);const target=new THREE.Object3D();target.position.set(30,.07,side*.6);c.lights.add(lamp,target);lamp.target=target;lamp.castShadow=false;c.headlights.push(lamp);}
   const beamCanvas=document.createElement('canvas');beamCanvas.width=64;beamCanvas.height=128;const g=beamCanvas.getContext('2d'),grad=g.createLinearGradient(0,0,0,128);grad.addColorStop(0,'rgba(255,238,195,.25)');grad.addColorStop(1,'rgba(255,238,195,0)');g.fillStyle=grad;g.beginPath();g.moveTo(27,0);g.lineTo(37,0);g.lineTo(64,128);g.lineTo(0,128);g.closePath();g.fill();const texture=new THREE.CanvasTexture(beamCanvas),material=new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,toneMapped:false});c.beams=[];
   for(const side of [-1,1]){const beam=new THREE.Mesh(new THREE.PlaneGeometry(3.6,19).rotateX(-Math.PI/2).rotateY(-Math.PI/2),material);beam.position.set(11.4,.045,side*.6);c.lights.add(beam);c.beams.push(beam);}c.root.add(c.lights);
@@ -9798,7 +9843,7 @@ function renderCruisePanel(){
   if(cruiseTab==='challenges')content=`<p>Start whenever you like. No countdowns or time limits; cancelling costs nothing. Both players can cruise along, with Player 1 leading the optional run.</p><div class="cards">${[['clean','Clean mountain run','Follow the mountain road markers without an impact. A bumpy finish still completes the route.'],['drift','Sakura slide','Accumulate five seconds of controlled road drifting. Try the Drifting setup in P if you want more angle.'],['coast','Coastal cruise','Follow a short coastal route at your own pace. Enjoy the road, not a clock.']].map(([id,title,desc])=>`<section class="card"><h3>${title}</h3><p>${desc}</p><p>${cruiseProgress.badges[id]?'✓ Postcard earned':'Optional postcard'}</p><button data-cruise="challenge" data-id="${id}">${cruiseProgress.badges[id]?'Run again':'Start run'}</button></section>`).join('')}</div>${cruiseChallenge.active?'<button data-cruise="cancel">Cancel current run</button>':''}<p class="muted">Follow the teal route on the map. U retries the last completed run.</p>`;
   if(cruiseTab==='build'){
     const c=cars[Math.min(buildSlot,cars.length-1)],b=c.build,unlocked=Object.keys(cruiseProgress.visited).length>=3;buildSlot=c.playerSlot;
-    content=`<p>Make this S14 yours. The core choices are available from the start; exploration adds an optional club banner.</p>${split?field('Customize','build-player',[[0,'Player 1'],[1,'Player 2']],buildSlot):''}<label class="field">Paint <input id="build-paint" type="color" value="${b.paint}"></label><div class="field"><span>Quick swatches</span><div>${['#dfe3e8','#253d60','#73454b','#416b60',...(cruiseProgress.distance>=5000?['#b58570']:[]),...(cruiseProgress.badges.coast?['#82a99c']:[]),...(cruiseProgress.badges.clean?['#b3a17f']:[]),...(cruiseProgress.badges.drift?['#65546e']:[])].map(color=>`<button data-cruise="swatch" data-color="${color}" style="background:${color};width:32px;padding:4px" aria-label="Paint ${color}">●</button>`).join('')}</div></div>${field('Wheels','build-wheels',[['six','Bronze six-spoke'],['five','Silver five-spoke'],['dish','Gunmetal dish']],b.wheels)}${field('Ride height','build-ride',[['stock','Stock'],['low','Low'],['cruise','Cruise low']],b.ride)}${field('Body kit','build-kit',[['stock','Factory style'],['street','Street aero'],['drift','Drift lip & ducktail']],b.kit)}${field('Exhaust character','build-exhaust',[['mellow','Mellow'],['sport','Sport'],['track','Track']],b.exhaust)}${field('Interior trim','build-interior',[['classic','Classic charcoal'],['red','Sport red'],['tan','Warm tan']],b.interior)}${field('Window banner','build-decal',[['none','Clean glass'],['works','DD Works'],...(unlocked?[['postcard','Shiosai Cruise Club']]:[])],b.decal)}<p class="muted">${unlocked?'Cruise Club banner unlocked.':'Discover three stops to unlock the optional Cruise Club banner.'} Ride-height changes are visual; tyre size and physics stay consistent. Press C to cycle to the cockpit view.</p><button data-cruise="photo">Photograph your build</button>`;
+    content=`<p>Make this S14 yours. The core choices are available from the start; exploration adds an optional club banner.</p>${split?field('Customize','build-player',[[0,'Player 1'],[1,'Player 2']],buildSlot):''}<label class="field">Paint <input id="build-paint" type="color" value="${b.paint}"></label><div class="field"><span>Quick swatches</span><div>${['#dfe3e8','#253d60','#73454b','#416b60',...(cruiseProgress.distance>=5000?['#b58570']:[]),...(cruiseProgress.badges.coast?['#82a99c']:[]),...(cruiseProgress.badges.clean?['#b3a17f']:[]),...(cruiseProgress.badges.drift?['#65546e']:[])].map(color=>`<button data-cruise="swatch" data-color="${color}" style="background:${color};width:32px;padding:4px" aria-label="Paint ${color}">●</button>`).join('')}</div></div>${field('Wheels','build-wheels',[['six','Bronze six-spoke'],['five','Silver five-spoke'],['dish','Gunmetal dish']],b.wheels)}${field('Ride height','build-ride',[['stock','Stock'],['low','Low'],['cruise','Cruise low']],b.ride)}${field('Body kit','build-kit',[['stock','Factory style'],['street','Street aero'],['drift','Drift side skirts']],b.kit)}${!split?field('Spoiler','build-spoiler',[['none','Clean trunk · no spoiler'],['factory','Factory wing'],['ducktail','Painted ducktail'],['gt','GT wing']],b.spoiler)+field('Front bumper','build-frontBumper',[['factory','Factory'],['street','Street lip'],['drift','Deep drift bumper']],b.frontBumper)+field('Rear bumper','build-rearBumper',[['factory','Factory'],['street','Street spats'],['drift','Drift diffuser']],b.rearBumper)+`<label class="field"><span>Tyre-smoke colour</span><input id="build-smokeColor" type="color" value="${b.smokeColor}"></label><p class="muted">Solo appearance options save with your build. Smoke colour applies to tyre smoke; grass keeps its natural dust and clipping colours.</p>`:''}${field('Exhaust character','build-exhaust',[['mellow','Mellow'],['sport','Sport'],['track','Track']],b.exhaust)}${field('Interior trim','build-interior',[['classic','Classic charcoal'],['red','Sport red'],['tan','Warm tan']],b.interior)}${field('Window banner','build-decal',[['none','Clean glass'],['works','DD Works'],...(unlocked?[['postcard','Shiosai Cruise Club']]:[])],b.decal)}<p class="muted">${unlocked?'Cruise Club banner unlocked.':'Discover three stops to unlock the optional Cruise Club banner.'} Ride-height changes are visual; tyre size and physics stay consistent. Press C to cycle to the cockpit view.</p><button data-cruise="photo">Photograph your build</button>`;
   }
   if(cruiseTab==='radio')content=`<p>Original in-game stations, or bring a song from your own device. Imported music stays in this browser session.</p>${field('Station','cruise-station',[['off','Radio off'],['lofi','Sakura FM · lo-fi'],['ambient','Shiosai Air · ambient'],['jazz','Night Lane · jazz-inspired'],...(radio.personal?[['personal','Your music']]:[])],radio.station)}<p id="radio-track" class="muted">${escapeText(radio.status)}</p><label class="field"><span>Import your music</span><input id="personal-music" type="file" accept="audio/*"></label>${[['engineVolume','Engine volume'],['musicVolume','Music volume'],['ambientVolume','Rain / meet ambience']].map(([id,label])=>`<label class="field"><span>${label}</span><input id="${id}" aria-label="${label}" type="range" min="0" max="1" step=".02" value="${P[id]}"></label>`).join('')}<p class="muted">No autoplay radio. Meet speakers can be heard nearby when your radio is off; turn ambience down to silence them.</p>`;
   if(cruiseTab==='postcards')content=`<p>Your memories of the roads. No streaks, daily chores, currency or limited-time rewards.</p><h3>${(cruiseProgress.distance/1000).toFixed(1)} km explored</h3><div class="cards">${CRUISE_SITES.map(s=>`<section class="card"><h3>${cruiseProgress.visited[s.id]?'✓':'○'} ${s.name}</h3><p>${cruiseProgress.visited[s.id]?'Postcard collected.':'Find the parking area to collect its postcard.'}</p></section>`).join('')}</div><h3>Optional run postcards</h3><p>${['clean','drift','coast'].map(id=>(cruiseProgress.badges[id]?'✓ ':'○ ')+{clean:'Clean mountain run',drift:'Sakura slide',coast:'Coastal cruise'}[id]).join(' · ')}</p><p class="muted">${Object.keys(cruiseProgress.visited).length>=3?'Cruise Club banner unlocked in Your build.':'Three discovered stops unlock an optional Cruise Club banner.'} Five explored kilometres and optional run postcards add bonus paint swatches. All custom colours remain available. Progress is saved on this device.</p>`;
@@ -9811,7 +9856,7 @@ cruisePanel.addEventListener('change',e=>{const id=e.target.id,value=e.target.va
   if(id.startsWith('build-')&&id!=='build-player'){const key=id.slice(6);applyPlayerBuild(cars[Math.min(buildSlot,cars.length-1)],{[key]:value});}
   if(id==='cruise-station')setRadioStation(value).then(()=>{if(cruiseTab==='radio')renderCruisePanel();});if(id==='personal-music'&&e.target.files?.[0]){if(importPersonalMusic(e.target.files[0]))renderCruisePanel();else showCruiseToast('Choose an audio file such as MP3, Ogg or WAV.');}
 });
-cruisePanel.addEventListener('input',e=>{if(['engineVolume','musicVolume','ambientVolume'].includes(e.target.id)){P[e.target.id]=clamp(Number(e.target.value)||0,0,1);updOut();updateCruiseAudio();if(radio.rainGain)radio.rainGain.gain.setTargetAtTime(cruiseSettings.rain?P.ambientVolume*.1:0,AC.currentTime,.15);}if(e.target.id==='build-paint')applyPlayerBuild(cars[Math.min(buildSlot,cars.length-1)],{paint:e.target.value});});
+cruisePanel.addEventListener('input',e=>{if(['engineVolume','musicVolume','ambientVolume'].includes(e.target.id)){P[e.target.id]=clamp(Number(e.target.value)||0,0,1);updOut();updateCruiseAudio();if(radio.rainGain)radio.rainGain.gain.setTargetAtTime(cruiseSettings.rain?P.ambientVolume*.1:0,AC.currentTime,.15);}if(['build-paint','build-smokeColor'].includes(e.target.id))applyPlayerBuild(cars[Math.min(buildSlot,cars.length-1)],{[e.target.id.slice(6)]:e.target.value});});
 function enterPhoto(){if(!started||photo.active)return false;if(race.active){showCruiseToast('Leave the race before opening photo mode.');return false;}closeCruisePanel();if(mapOpen)closeMap();tuneEl.style.display='none';photo.active=true;photo.keys.clear();photo.focus=0;resetPhoto();physicsClock.accumulator=0;setGameChrome(false);cruiseHUD.textContent='';speedCanvas.style.display=driveFX.style.display='none';microStatus.style.opacity=0;photoPanel.style.display='block';pausePersonalMusic();if(AC)AC.suspend().catch(console.warn);renderPhotoPanel();return true;}
 function resetPhoto(){const c=cars[Math.min(photo.focus,cars.length-1)];photo.target.set(c.x,c.y+.65,c.z);photo.yaw=c.yaw+2.25;photo.pitch=.24;photo.distance=7;photo.camera.fov=55;}
 function leavePhoto(resume=true){if(!photo.active)return;photo.active=false;photo.keys.clear();photoPanel.style.display='none';renderer.domElement.style.filter='';physicsClock.accumulator=0;clock.getDelta();if(resume&&started){setGameChrome(true);layoutHud();if(AC)AC.resume().catch(console.warn);resumePersonalMusic();}updateCruiseHUD();}
