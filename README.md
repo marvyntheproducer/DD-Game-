@@ -1,4 +1,4 @@
-# Drift Drive V3.1 — Japan Arcade
+# Drift Drive V4 — Cruise Life
 
 A Three.js / Web Audio driving game with free roam, local split-screen, engine
 swaps, drift tuning, and custom road races. Locations are fictional and inspired
@@ -18,6 +18,45 @@ python3 -m http.server 8080
 
 Open http://localhost:8080/Drift%20Drive/ and choose **Solo Run** or **Split Screen**. Startup now reports
 its current stage and terrain percentage while building the larger world.
+
+## V4 — Cruise Life
+
+Press **J** while driving to open the Cruise Life hub. Driving pauses while
+browsing, including in split-screen. Core features are available from the start.
+
+| Addition | What to try |
+| --- | --- |
+| Time and weather | Day, golden sunset or night, plus optional light rain. Solo headlights illuminate the road; split-screen uses cheaper beam effects. Rain changes appearance and ambience, preserving tyre grip. |
+| Scenic stops | Sakura Konbini, Aoi Fuel & Rest, Shiosai Sunset Meet, Fujimi Lookout and Valley Works Garage. Each has a paved pull-off connected to the road. Discover them while driving, use Tab for navigation, or travel through J. |
+| Optional runs | A clean mountain route, five accumulated seconds of controlled drifting, and a coastal cruise. No countdown or time limit. Player 1 leads; Player 2 can cruise along. K cancels and U retries the last completed run. |
+| Small car meets | Parked, solid JDM-inspired coupes at the seaside and garage, quiet nearby music and occasional slow arrivals. A shared fleet of at most nine uses six instanced draws; split-screen displays at most six nearby cars. |
+| Personal builds | Per-player paint, three wheel styles, three visual ride heights, body kits, exhaust character, interior trim and windshield banners. Live build preview; C cycles through chase and cockpit cameras. Builds save locally. |
+| Cruise radio | Three original instrumental stations: lo-fi, ambient and jazz-inspired. Radio starts off. Import a local audio file for your own music; imports stay on your device and must be selected again after reloading. Independent engine, music and ambience sliders. |
+| Photo mode | O pauses the world and hides the HUD. Drag to orbit, right-drag or WASD to pan, Q/E to lift, wheel to zoom and arrows to orbit. Choose a lens and filter, then Space or Save PNG to download a photo. Esc returns to driving. |
+| Relaxed progression | Collect five location postcards, three optional-run postcards and explored distance. Discovering three stops unlocks a club banner; five kilometres and run postcards add quick paint swatches. Custom paint and the main build options remain free. No currency, streaks or daily tasks. |
+
+**F** opens the hub when stopped near a destination. Traditional timed races
+remain available through B/G; finish or leave one before opening the hub or
+photo mode. Resetting or travelling cancels an optional run without removing
+earned postcards. Exploration distance counts driving, not fast travel.
+
+Parking areas use the same authoritative asphalt and terrain contact system as
+the roads, with boolean cutouts to avoid overlapping road surfaces and unbounded
+loading work. Parked vehicles and destination props have solid horizontal
+contacts. These remain simplified, inexpensive representations, not pedestrian
+or full vehicle-body simulation.
+
+Progress, builds and weather save in this browser on this device. Clearing site
+data can remove them. Split-screen shares the environment and exploration
+journal, while each player has a separate visual build. Ride height changes the
+body visually and preserves tyre/contact physics. Exhaust character filters
+the existing engine bank rather than claiming to be a new recording.
+
+Radio music is original procedural synthesis, embedded for direct-file playback.
+See `Drift Drive/audio/radio/CREDITS.md` and its reproducible manifest.
+Regeneration uses `tools/generate-cruise-radio.py` with NumPy and FFmpeg.
+Night/rain use bounded particle pools, no rain physics and no headlight shadows.
+The existing automatic graphics and traffic fallbacks remain active.
 
 ## V3.1 adjustments
 
@@ -256,7 +295,10 @@ coverage, polygon overlap, flush road verges, bounded edge poses, support-plane 
 launches for every baseline engine, burnout gear holding, limiter recovery, culling bounds
 audio lifecycle, lift-off flutter, clutch-energy bounds, traffic fallback and solid contacts, arcade menu transitions,
 handling presets, synchronized solo backfire, adaptive solo graphics and analog
-instrument updates. Three.js geometry/math are real; DOM, Canvas, GPU and Web
+instrument updates. V4 checks also cover stop/driveway connectivity, weather budgets,
+per-player build persistence, meet collisions/arrivals, optional-run completion,
+exploration unlocks, embedded radio lifecycle, personal music and photo-mode
+freezing/export. Three.js geometry/math are real; DOM, Canvas, GPU and Web
 Audio nodes are stubbed. Tests do not establish actual browser FPS, rendered
 appearance or subjective handling/audio quality. Check those on the target
 computer, especially split-screen and mountain approaches.

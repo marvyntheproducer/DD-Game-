@@ -1,0 +1,17 @@
+[
+  {
+    "file": "lofi.ogg",
+    "sha256": "95822b986f5316029c5395afd8de83b731e69aa64c12db3b51800b2c36812fe2",
+    "seconds": 53.333333333333336
+  },
+  {
+    "file": "ambient.ogg",
+    "sha256": "3007b0f3198f6db5fdd94638aafe5732126a2b084692116b6114f1b4349735c1",
+    "seconds": 53.333333333333336
+  },
+  {
+    "file": "jazz.ogg",
+    "sha256": "630fad4726c0bd4833ecd7c87e81d7feaf2ad9b2b3bb7c65bf109fddb3b531b9",
+    "seconds": 53.333333333333336
+  }
+]
