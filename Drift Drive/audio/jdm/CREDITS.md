@@ -1,39 +1,14 @@
-# V5 JDM engine recordings
+# V5.1 engine audio
 
-No CarX sound banks or game assets are included.
+The default banks replace V5's short field-recording excerpts with original crank-angle pulse synthesis convolved with the exhaust response from **Engine Simulator**, by **AngeTheGreat (Ange Yaghi)**.
 
-## 1JZ street swap · Silvia recording
+Upstream: https://github.com/ange-yaghi/engine-sim
+Commit: 85f7c3b959a908ed5232ede4f1a4ac7eafe6b630
+Source response: assets/sound-library/smooth/smooth_39.wav (included as engine-sim-smooth39.wav).
+License: MIT; full notice in ENGINE-SIM-LICENSE.txt.
 
-- Creator: NISSAN CARS
-- Source: https://commons.wikimedia.org/wiki/File:Nissan_Silvia_-_engine_and_exhaust_sound_(YouTube_ugy3NWCI7H8).opus
-- Media: https://upload.wikimedia.org/wikipedia/commons/6/65/Nissan_Silvia_-_engine_and_exhaust_sound_%28YouTube_ugy3NWCI7H8%29.opus
-- License: CC BY 3.0 — https://creativecommons.org/licenses/by/3.0/
-- Excerpts (seconds): 31.4, 30.2, 23.6, 53.4
+`tools/prepare-sim-audio.py` adapts the DC removal, pressure/derivative blending and exhaust convolution approach in `src/synthesizer.cpp`, especially `initializeImpulseResponse` and `renderAudio`. The periodic cylinder-pressure excitation, engine voicing, filtering and bank generation are original Drift Drive work. No upstream C++ executable or third-party engine scripts are included. The Community Edition release linked by the user distributes a Windows application; its README points to this original open-source version. This is **not the complete Engine Simulator combustion/gas-flow model**, a live integration, a recording from that app, or verified factory engine audio.
 
-## RB26 touring · Skyline GT-R recording
+Four voices: even-firing six-cylinder 1JZ, RB26 and 2JZ-inspired configurations; two-rotor 13B-inspired voice (four exhaust events per 720 degrees). Eight complete cycles per loop; exact reference RPMs account for integer sample lengths. Steady pulses avoid accidental field-recording misfires, guessed RPM references and background noise. Pressure decay and exhaust mix differ per voice. Muted layers retain crank phase, layers start together, and linear blending avoids doubling correlated waveforms. A single load-dependent low-pass signal path avoids parallel-filter combing. These loops use lossless PCM WAV and runtime playback-rate interpolation, so they remain an approximation rather than a factory sound match.
 
-- Creator: LowFps
-- Source: https://commons.wikimedia.org/wiki/File:Nissan_Skyline_GT-R_-_engine_and_exhaust_sound_(YouTube_NpqxDM7pejs).opus
-- Media: https://upload.wikimedia.org/wikipedia/commons/d/d6/Nissan_Skyline_GT-R_-_engine_and_exhaust_sound_%28YouTube_NpqxDM7pejs%29.opus
-- License: CC BY 3.0 — https://creativecommons.org/licenses/by/3.0/
-- Excerpts (seconds): 413, 15, 47.8, 245.2
-
-## 2JZ touring · Supra dyno recording
-
-- Creator: editboy23
-- Source: https://freesound.org/people/editboy23/sounds/496171/
-- Media: https://cdn.freesound.org/previews/496/496171_1784475-hq.mp3
-- License: CC0 1.0 — https://creativecommons.org/publicdomain/zero/1.0/
-- Excerpts (seconds): 13.2, 0.4, 10, 22.4
-
-## 13B touring · RX-7 recording
-
-- Creator: Taz Ringer
-- Source: https://commons.wikimedia.org/wiki/File:Mazda_RX-7_-_engine_and_exhaust_sound_(YouTube_4z0y1H2REvE).opus
-- Media: https://upload.wikimedia.org/wikipedia/commons/3/35/Mazda_RX-7_-_engine_and_exhaust_sound_%28YouTube_4z0y1H2REvE%29.opus
-- License: CC BY 3.0 — https://creativecommons.org/licenses/by/3.0/
-- Excerpts (seconds): 207.4, 186, 140, 242.2
-
-Changes: short excerpts, mono 32 kHz resampling, 65 Hz–7 kHz filtering, DC removal, RMS/peak level matching, circular seam overlap, Vorbis encoding and RPM/load/camera mixing in the player. The Silvia source is a 1JZ-swapped S15 used for a clearly labelled S14 gameplay swap. Reference RPMs are spectral estimates; field recordings are not validated steady-state dyno banks. Some source distortion/ambience remains; no exact factory or CarX sound match is claimed.
-
-The public source pages state these licenses; recordings are credited without implying creator endorsement. manifest.json records file/source hashes and excerpt windows. tools/prepare-jdm-audio.py reproduces the edits.
+Rebuild: `python tools/prepare-sim-audio.py` (NumPy and SciPy required). Inputs are included; no network access required. `manifest.json` records hashes and upstream commit. The earlier `tools/prepare-jdm-audio.py` remains a historical V5 recording utility and is not the generator for the shipped default banks.

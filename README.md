@@ -1,4 +1,4 @@
-# Drift Drive V5 — JDM Nights
+# Drift Drive V5.1 — JDM Nights
 
 A Three.js / Web Audio driving game with free roam, local split-screen, engine
 swaps, drift tuning, and custom road races. Locations are fictional and inspired
@@ -39,26 +39,20 @@ shows the checkpoint sequence. An always-on HUD arrow and distance point at the
 next checkpoint independently for each player, including when the racing line
 is hidden. Arrows stop on finish/exit.
 
-The chase camera now filters height and look-at movement as well as position.
-Impact wobble, roll and shift FOV jolts are removed. Camera intensity still
-adjusts the smoother speed/drift framing; terrain/tunnel clearance remains.
+Chase cameras sit closer and higher and keep a fixed follow distance at speed.
+Hood/cockpit views follow heading and filtered road grade without suspension
+roll. View changes reset their framing; terrain/tunnel clearance remains.
 
-Four new **real-recording** audio banks replace the default old 350Z/Mustang
-mix: a 1JZ-swapped Silvia source, Skyline GT-R, Supra dyno and RX-7. RPM layers
-use estimated reference speeds, limited pitch stretch, equal-power blending,
-smoothed RPM and load/overrun/cockpit filtering. Limiter buzz and excessive wind
-noise are reduced. The Silvia source is a swapped S15 used for the clearly
-labelled S14 1JZ gameplay build. These are edited field/dyno excerpts, not
-verified factory recordings across every RPM, and subjective audio quality
-still needs listening/playtesting on the target device.
-
-No CarX game audio was copied. Source creators, CC BY 3.0/CC0 licenses, edit
-windows and hashes are in `Drift Drive/audio/jdm/CREDITS.md` and its manifest.
-`tools/prepare-jdm-audio.py` reproduces the edits from the credited sources.
-On upgrade, older engine selections switch to the chosen garage car’s new
-recording bank; historical engine tuning data remain stored. The older
-banks/files are retained for compatibility/credits; deprecated
-choices are hidden unless they are the currently selected legacy tune.
+Four default audio voices use original crank-angle pulse synthesis and the
+MIT-licensed exhaust response/audio approach from Ange Yaghi's Engine Simulator.
+The older short field-recording loops have been replaced. These are lightweight
+synthesized approximations, not factory recordings or the complete simulator.
+Lossless loops retain crank phase through RPM changes; a single load-dependent
+filter handles acceleration and overrun. See `Drift Drive/audio/jdm/CREDITS.md`
+and `tools/prepare-sim-audio.py` for attribution and reproducible generation.
+Historical engine tuning remains readable; deprecated older sound choices stay
+hidden unless currently selected. Sound quality still needs a listening test
+on the player's device.
 
 Radio starts automatically on the first user-initiated mode entry. **J → Cruise
 radio** changes station or turns it off. An explicit Off choice is respected
@@ -429,3 +423,11 @@ then zero; it recovers after sustained faster frames. Actual FPS depends on
 the device; this budget is a safeguard, not a measured FPS guarantee.
 
 Bundled road-cutout geometry code and its licenses: THIRD_PARTY_LICENSES.txt.
+
+## V5.1 camera, bodies and audio
+
+Chase views use bounded car-relative offsets (5.2 m / 6.5 m) and higher mounts, with restrained FOV changes. They no longer fall farther behind at speed. Mounted cameras use chassis heading and filtered road grade rather than suspension roll; switching views resets their state.
+
+R34, A80 Supra and FD bodies now have separate dimension and silhouette profiles, curved roof/glass, sculpted fenders and wheel lips, revised lighting, bumper surrounds and aerofoil wings. These remain original procedural interpretations, not scanned or manufacturer-provided models.
+
+Default audio uses steady crank-angle pulse synthesis plus Ange Yaghi's MIT-licensed Engine Simulator exhaust response/audio approach. This is not the full simulator or a recording of it. See `Drift Drive/audio/jdm/CREDITS.md`. All layers retain phase through RPM changes; a single filter path handles load and overrun.
