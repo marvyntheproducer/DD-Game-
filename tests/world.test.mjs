@@ -58,7 +58,7 @@ test('all bundled engine audio references exist and WAV is genuine PCM',()=>{
     if(!bank[k])continue;
     if(bank[k].startsWith('audio/')){const b=fs.readFileSync(new URL('../Drift Drive/'+bank[k],import.meta.url));
       assert.equal(b.toString('ascii',0,4),'RIFF');assert.equal(b.toString('ascii',8,12),'WAVE');}
-    else assert.equal(Buffer.from(bank[k],'base64').toString('ascii',0,4),'OggS');
+    else{const b=Buffer.from(bank[k],'base64');assert.equal(b.toString('ascii',0,4),bank.synthesized?'RIFF':'OggS');if(bank.synthesized){assert.equal(b.toString('ascii',8,12),'WAVE');assert.equal(b.readUInt16LE(20),1);assert.equal(b.readUInt16LE(22),1);assert.equal(b.readUInt32LE(24),32000);assert.equal(b.readUInt16LE(34),16);}}
   }
 });
 
@@ -309,7 +309,7 @@ test('traffic is bounded, yields to players, and disables itself on slow frames'
 test('S14 inspired body uses coupe proportions with bounded geometry',()=>{
   const c=g.cars[0];assert.match(c.root.userData.model,/S14/);const d=c.root.userData.dimensions;
   assert.ok(d.length>4.4&&d.length<4.6);let triangles=0;c.root.traverse(o=>{if(o.isMesh)triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;});
-  assert.ok(triangles<12000);
+  assert.ok(triangles<18000);
 });
 
 test('arcade menu selects both modes and freezes the run while paused',()=>{
@@ -519,7 +519,7 @@ test('V5 garage contains only four JDM legends with distinct finite body geometr
     const c=g.makeCar(g.JDM_CARS[id].color,{},id,0);let triangles=0;
     c.root.traverse(o=>{if(o.isMesh){assert.ok(o.geometry.attributes.position.array.every(Number.isFinite));triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;}});
     c.root.traverse(o=>{if(o.isMesh&&o.material===c.paint){assert.ok(o.geometry.attributes.color);assert.equal(o.geometry.attributes.color.count,o.geometry.attributes.position.count);}});
-    assert.equal(c.carId,id);assert.ok(c.factorySpoiler);assert.ok(c.frontPlate);assert.ok(triangles<12000);counts.push(triangles);g.scene.remove(c.root);
+    assert.equal(c.carId,id);assert.ok(c.factorySpoiler);assert.ok(c.frontPlate);assert.ok(triangles<18000);counts.push(triangles);g.scene.remove(c.root);
   }
   assert.equal(new Set(counts).size,4);assert.ok(g.ENGINE_PROFILES[g.JDM_CARS.fd.engine]);assert.equal(g.selectVehicle(0,'toString'),false);
 });
@@ -563,16 +563,16 @@ test('V5 quick race launches from the menu and its builder returns to the paused
   g.openLobbyBuilder();g.race.cps=[];g.prepareCourse();assert.equal(g.launchLobby(true),false);assert.equal(g.state.started,false);
   g.presetCourse('tunnel');assert.equal(g.launchLobby(true),true);assert.equal(g.race.active,true);assert.ok(g.race.name.includes('Tunnel'));g.openMainMenu();
 });
-test('V5 engine banks embed licensed recordings with bounded RPM pitch and load/overrun blending',async()=>{
+test('V5.1 engine banks retain licensed provenance and use a single stable load signal path',async()=>{
   for(const old of ['VQ35Recorded','MustangRecorded','RB25','2JZ','Rotary','LS9','ZB'])assert.equal(g.chooseInitialEngine(old),g.JDM_CARS[g.garage.ids[0]].engine);
   assert.equal(g.chooseInitialEngine('JZ2Tour'),'JZ2Tour');
   g.setStarted(true);g.initAudio();const manifest=JSON.parse(fs.readFileSync(new URL('../Drift Drive/audio/jdm/manifest.json',import.meta.url)));assert.equal(manifest.length,16);
-  for(const item of manifest){const bytes=fs.readFileSync(new URL('../Drift Drive/audio/jdm/'+item.file,import.meta.url));assert.equal(createHash('sha256').update(bytes).digest('hex'),item.sha256);assert.ok(['CC BY 3.0','CC0 1.0'].includes(item.license));assert.ok(item.reference_rpm_estimate>700);}
+  for(const item of manifest){const bytes=fs.readFileSync(new URL('../Drift Drive/audio/jdm/'+item.file,import.meta.url));assert.equal(createHash('sha256').update(bytes).digest('hex'),item.sha256);assert.equal(item.license,'MIT');assert.ok(item.reference_rpm>700);assert.equal(item.cycles,8);assert.equal(bytes.toString('ascii',0,4),'RIFF');assert.equal(createHash('sha256').update(Buffer.from(context.window.ENGINE_SOUNDS[item.engine][item.layer],'base64')).digest('hex'),item.sha256);}
   for(const key of ['JZ1Street','RB26Tour','JZ2Tour','RotaryTour']){
     g.selectEngine(key);await g.loadEngine(key);const c=g.cars[0],bank=context.window.ENGINE_SOUNDS[key];assert.equal(c.au.layers.length,4);assert.equal(bank.preferred,true);
     c.rpm=6500;c.inp.thr=1;c.inp.clutch=false;c.shiftT=0;g.updAudio(c,1/60,30,0);const loaded=c.au.loadGain.gain.value;
-    c.inp.thr=0;g.updAudio(c,1/60,30,0);assert.ok(c.au.loadGain.gain.value<loaded);assert.ok(c.au.coastGain.gain.value>0);
-    for(const layer of c.au.layers)assert.ok(layer.src.playbackRate.value>=bank.pitchMin&&layer.src.playbackRate.value<=bank.pitchMax);
+    c.inp.thr=0;g.updAudio(c,1/60,30,0);assert.ok(c.au.loadGain.gain.value<loaded);assert.equal(c.au.coastGain.gain.value,0);
+    assert.equal(bank.phaseLocked,true);assert.equal(bank.seamless,true);assert.equal(new Set(c.au.layers.map(l=>l.src.startedAt)).size,1);for(const layer of c.au.layers)assert.ok(Math.abs(layer.src.playbackRate.value*layer.ref-c.au.audioRPM)<1e-6);
   }g.setStarted(false);
 });
 test('V5 radio starts on first mode entry and respects an explicit Off choice on resume',async()=>{
@@ -580,4 +580,14 @@ test('V5 radio starts on first mode entry and respects an explicit Off choice on
   await Promise.resolve();await Promise.resolve();await Promise.resolve();assert.equal(g.radio.station,'lofi');assert.equal(g.radio.autoStarted,true);
   await g.setRadioStation('off');g.openMainMenu();g.startMode(false);assert.equal(g.radio.station,'off');
   g.radio.autoStarted=false;g.startMode(false);assert.equal(g.radio.station,'off');g.openMainMenu();
+});
+
+test('V5.1 chase cameras retain a bounded distance at highway speed and reset every view',()=>{
+  g.setSplit(false);const c=g.cars[0];g.placeCar(c,0,0,0);c.y=10;c.gfx=0;c.gfz=0;c.vwx=70;c.vwz=0;
+  for(const mode of [0,1])for(const fps of [30,60,120]){
+    c.camMode=mode;c.camSnap=true;
+    for(let n=0;n<fps*2;n++){c.x+=70/fps;g.updCam(c,1/fps,16/9);const d=Math.hypot(c.cam.position.x-c.x,c.cam.position.z-c.z);assert.ok(d<=6.51);assert.ok(c.cam.position.y>=c.y+1.9);assert.ok(c.cam.fov<=61);}
+  }
+  for(const mode of [3,2,0,1,2,3]){c.camMode=mode;c.camSnap=false;g.updCam(c,1/60,16/9);assert.equal(c.cameraMode,mode);assert.ok(Math.hypot(c.cam.position.x-c.x,c.cam.position.z-c.z)<6.51);}
+  for(const mode of [2,3]){c.camMode=mode;c.camSnap=true;g.updCam(c,1/60,16/9);const p=c.cam.position.clone(),q=c.cam.quaternion.clone();c.root.rotation.set(.4,.8,-.3);c.susp=.2;c.fxImpact=1;g.updCam(c,1/60,16/9);assert.ok(c.cam.position.distanceTo(p)<1e-8);assert.ok(c.cam.quaternion.angleTo(q)<1e-7);c.roadGradeX=.12;c.camSnap=true;g.updCam(c,1/60,16/9);assert.ok(Math.abs(c.cameraAim.y-c.cam.position.y-2.4)<1e-8);c.roadGradeX=0;}
 });

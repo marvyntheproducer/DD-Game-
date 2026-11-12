@@ -35,7 +35,7 @@ test('desktop CSP permits the exact inline game scripts without eval or external
 });
 
 test('asset handler serves offline modules and recorded audio but cannot leave the game root',async()=>{
- for(const [url,type] of [['drift://game/','text/html'],['drift://game/vendor/three.module.js','text/javascript'],['drift://game/audio/recorded/nissan-low.ogg','audio/ogg']]){
+ for(const [url,type] of [['drift://game/','text/html'],['drift://game/vendor/three.module.js','text/javascript'],['drift://game/audio/recorded/nissan-low.ogg','audio/ogg'],['drift://game/audio/jdm/rb26tour-low.wav','audio/wav']]){
   const response=await assetResponse(game,{url,method:'GET'});assert.equal(response.status,200);assert.ok(response.headers.get('content-type').startsWith(type));assert.ok((await response.arrayBuffer()).byteLength>100);
  }
  const head=await assetResponse(game,{url:'drift://game/index.html',method:'HEAD'});assert.equal(head.status,200);assert.equal(await head.text(),'');
