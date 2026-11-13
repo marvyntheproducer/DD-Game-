@@ -53,7 +53,7 @@ test('camera frusta skip most terrain and tree geometry',()=>{
 });
 test('all bundled engine audio references exist and WAV is genuine PCM',()=>{
   vm.runInContext(fs.readFileSync(new URL('../Drift Drive/sounds.js',import.meta.url),'utf8'),context);
-  for(const key of ['JZ1Street','RB26Tour','JZ2Tour','RotaryTour'])vm.runInContext(fs.readFileSync(new URL('../Drift Drive/jdm-bank-'+key+'.js',import.meta.url),'utf8'),context);vm.runInContext(fs.readFileSync(new URL('../Drift Drive/jdm-audio.js',import.meta.url),'utf8'),context);context.ENGINE_SOUNDS=context.window.ENGINE_SOUNDS;
+  for(const key of ['JZ2Tour'])vm.runInContext(fs.readFileSync(new URL('../Drift Drive/jdm-bank-'+key+'.js',import.meta.url),'utf8'),context);vm.runInContext(fs.readFileSync(new URL('../Drift Drive/jdm-audio.js',import.meta.url),'utf8'),context);context.ENGINE_SOUNDS=context.window.ENGINE_SOUNDS;
   for(const bank of Object.values(context.window.ENGINE_SOUNDS))for(const k of ['idle','low','mid','high','limiter']){
     if(!bank[k])continue;
     if(bank[k].startsWith('audio/')){const b=fs.readFileSync(new URL('../Drift Drive/'+bank[k],import.meta.url));
@@ -141,16 +141,12 @@ test('a 1st to 2nd shift clears stale cuts and restores drive torque under hill 
   let powered=0;for(let tick=0;tick<96;tick++){g.step(c,1/240);g.updateAutoShift(c);if(c.driveTorque>100)powered++;}
   assert.equal(c.gear,2);assert.ok(powered>25);assert.equal(c.cutT,0);assert.ok(c.vx>3);
 });
-test('every engine applies a distinct physical tune and remembers its edits',()=>{
-  const powers=new Set();
-  for(const name of Object.keys(g.ENGINE_PROFILES)){
-    g.selectEngine(name,'factory');assert.equal(g.P.hp,g.ENGINE_PROFILES[name].tune.hp);assert.equal(g.P.engine,name);
-    assert.equal(g.P.gears,g.ENGINE_PROFILES[name].tune.gears);
-    for(let rpm=800;rpm<=g.P.redline;rpm+=300)assert.ok(g.engineTorque(rpm,1)>0);
-    powers.add(g.P.torque);assert.ok(Number.isFinite(g.ratioOf(g.P.gears)));
-  }
-  assert.ok(powers.size>=5);g.selectEngine('RB25','factory');g.P.boost=19;g.selectEngine('LS9','factory');g.selectEngine('RB25');assert.equal(g.P.boost,19);
-  g.selectEngine('2JZ','factory');
+test('only 2JZ is available and its builds retain editable output and gearing',()=>{
+  assert.deepEqual(Object.keys(g.ENGINE_PROFILES),['JZ2Tour']);assert.deepEqual(Object.keys(context.window.ENGINE_SOUNDS),['JZ2Tour']);
+  g.selectEngine('JZ2Tour','factory');const hp=g.P.hp,final=g.P.final;
+  g.selectEngine('JZ2Tour','drift');assert.ok(g.P.hp>hp&&g.P.final>final);g.P.boost=19;
+  g.selectEngine('JZ2Tour','highway');assert.ok(g.P.hp>hp&&g.P.final<final);g.P.boost=19;g.selectEngine('JZ2Tour');assert.equal(g.P.boost,19);
+  const engine=g.P.engine;g.selectEngine('RB25');g.selectEngine('toString');assert.equal(g.P.engine,engine);g.selectEngine('JZ2Tour','factory');
 });
 test('clutch kick produces a controllable wheel-slip burst without a forced sideways impulse',()=>{
   const c=g.cars[0];g.placeCar(c,0,0,0);c.gear=2;c.inp.thr=1;c.rpm=6500;c.clutchHeld=.15;c.wR=20/.32;c.vwx=20;c.vwz=4;
@@ -224,7 +220,7 @@ class Param {
 }
 class AudioNode {
   constructor(){this.gain=new Param();this.frequency=new Param();this.Q=new Param();this.pan=new Param();this.playbackRate=new Param();this.delayTime=new Param();this.connections=[];this.stopped=false;}
-  connect(n){this.connections.push(n);}disconnect(){this.connections=[];}start(time){this.startedAt=time;}stop(time){this.stoppedAt=time;assert.equal(this.stopped,false);this.stopped=true;}
+  connect(n){this.connections.push(n);}disconnect(){this.connections=[];}start(time){this.startedAt=time;}stop(time){this.stoppedAt=time;this.stopped=true;}
 }
 class AudioBuffer {
   constructor(ch,len,sr){this.numberOfChannels=ch;this.length=len;this.sampleRate=sr;this.duration=len/sr;this.data=Array.from({length:ch},()=>new Float32Array(len));}
@@ -244,12 +240,12 @@ context.fetch=async path=>({ok:true,arrayBuffer:async()=>{
 test('audio engine changes, cache, RPM mixing and split toggles release old nodes',async()=>{
   g.initAudio();await g.loadEngine('2JZ');assert.equal(g.cars[0].au.layers.length,14);
   for(const rpm of [950,2800,4800,6800,7900]){g.cars[0].rpm=rpm;g.updAudio(g.cars[0],1/60,30,0);}
-  const old=g.cars[0].au.layers.slice();await g.loadEngine('LS9');
+  const old=g.cars[0].au.layers.slice();await g.loadEngine('JZ2Tour');
   assert.ok(old.every(l=>l.src.stopped&&l.src.connections.length===0&&l.g.connections.length===0));
-  await Promise.all([g.loadEngine('Rotary'),g.loadEngine('Street')]);assert.equal(g.cars[0].au.layers.length,1);
+  await Promise.all([g.loadEngine('JZ2Tour'),g.loadEngine('JZ2Tour')]);assert.equal(g.cars[0].au.layers.length,14);
   for(let i=0;i<5;i++){g.setSplit(true);assert.ok(g.cars[1].au);const a=g.cars[1].au;g.setSplit(false);
     assert.ok([...a.srcs,...a.layers.map(l=>l.src)].every(n=>n.stopped&&n.connections.length===0));assert.equal(a.out.connections.length,0);}
-  assert.ok(g.engineCache.has('Street'));
+  assert.ok(g.engineCache.has('JZ2Tour'));
 });
 test('loop preparation smooths the wrap and bounds sample peaks',()=>{
   const ac=g.state.AC,b=ac.createBuffer(1,4410,44100),d=b.getChannelData(0);
@@ -280,15 +276,15 @@ test('clutch kick bounds wheel-speed gain and transfers only stored engine energ
   assert.equal(g.clutchKick(c,ratio,8),true);assert.ok((c.wR-old)*.32<=4.50001);
   assert.ok(c.kickEnergy<=energy*.85+.001);assert.equal(c.kickTorque,0);assert.ok(c.kickTimer<=.45);
 });
-test('turbo tone stays silent and one loaded lift produces one flutter',async()=>{
+test('turbo tone stays silent and one loaded lift produces one smooth BOV',async()=>{
   g.selectEngine('2JZ','factory');await g.loadEngine('2JZ');const c=g.cars[0];
   c.turboLiftArmed=false;c.turboCooldown=0;c.lastSpool=0;c.spool=1;c.rpm=4000;c.inp.thr=1;
-  const count=c.au.flutterCount||0;for(let i=0;i<30;i++)g.updAudio(c,1/60,15,0);
-  assert.equal(c.au.tg.gain.value,0);assert.equal(c.au.flutterCount||0,count);
+  const count=c.au.bovCount||0;for(let i=0;i<30;i++)g.updAudio(c,1/60,15,0);
+  assert.equal(c.au.tg.gain.value,0);assert.equal(c.au.bovCount||0,count);
   for(let i=29;i>=0;i--){c.inp.thr=i/30;g.updAudio(c,1/60,15,0);}
-  assert.equal(c.au.flutterCount,count+1);for(let i=0;i<120;i++)g.updAudio(c,1/60,15,0);
-  assert.equal(c.au.flutterCount,count+1);
-  const volume=g.P.turboVolume;g.P.turboVolume=0;g.playTurboFlutter(c.au,1);assert.equal(c.au.flutterCount,count+1);g.P.turboVolume=volume;
+  assert.equal(c.au.bovCount,count+1);for(let i=0;i<120;i++)g.updAudio(c,1/60,15,0);
+  assert.equal(c.au.bovCount,count+1);
+  const volume=g.P.turboVolume;g.P.turboVolume=0;g.playBlowOffValve(c.au,1);assert.equal(c.au.bovCount,count+1);g.P.turboVolume=volume;
 });
 test('traffic is bounded, yields to players, and disables itself on slow frames',()=>{
   g.endRace();g.setSplit(false);g.P.trafficMode=1;g.traffic.tier=2;g.setStarted(true);
@@ -390,13 +386,10 @@ test('west-coast expansion connects new road types and a driveable covered tunne
   g.placeCar(c,a.RX[i],a.RZ[i],Math.atan2(-a.TZa[i],a.TXa[i]));g.prePhys(c);assert.equal(c.tunnelRoad,true);
   c.x-=a.TZa[i]*a.RW[i];c.z+=a.TXa[i]*a.RW[i];const y=c.y;g.collideTunnel(c);const q=g.nearestRoad(c.x,c.z);assert.ok(q.d<a.RW[i]);assert.equal(c.y,y);
 });
-test('real-car sound banks are embedded Ogg assets with reproducible source manifests',()=>{
-  const manifest=JSON.parse(fs.readFileSync(new URL('../Drift Drive/audio/recorded/manifest.json',import.meta.url),'utf8'));assert.equal(manifest.length,6);
-  for(const key of ['VQ35Recorded','MustangRecorded']){const bank=context.window.ENGINE_SOUNDS[key];assert.equal(bank.recorded,true);assert.ok(g.ENGINE_PROFILES[key]);
-    for(const layer of ['idle','low','mid'])assert.equal(Buffer.from(bank[layer],'base64').toString('ascii',0,4),'OggS');}
-  for(const item of manifest){const bytes=fs.readFileSync(new URL('../Drift Drive/'+item.file,import.meta.url));assert.ok(bytes.length>1000);assert.ok(item.length_seconds>0);assert.equal(createHash('sha256').update(bytes).digest('hex'),item.sha256);}
+test('removed sound banks are not shipped and backfire samples are retained',()=>{
+  assert.deepEqual(Object.keys(context.window.ENGINE_SOUNDS),['JZ2Tour']);assert.ok(context.window.SPARK_SOUNDS.length>0);
+  for(const id of ['JZ1Street','RB26Tour','RotaryTour'])assert.equal(fs.existsSync(new URL('../Drift Drive/jdm-bank-'+id+'.js',import.meta.url)),false);
 });
-
 test('V4 weather changes lighting and rain budgets without taking tyre grip away',()=>{
   g.setSplit(false);g.soloQuality.tier=1;g.applyRenderQuality();const grip=[g.P.gripF,g.P.gripR],c=g.cars[0];
   assert.equal(g.setCruiseEnvironment('night',false),true);assert.equal(g.stars.visible,true);assert.ok(c.headlights.some(l=>l.visible&&l.intensity>0));
@@ -526,7 +519,7 @@ test('V5 garage contains only four JDM legends with distinct finite body geometr
 test('V5 pre-start garage selects bodies, saves per-car appearance and keeps the simulation paused',()=>{
   g.setStarted(false);g.race.active=false;g.setSplit(false);const hud=g.cars[0].hud,distance=g.cruiseProgress.distance;
   assert.equal(g.chooseLobbyMode('split'),true);assert.equal(g.state.started,false);
-  assert.equal(g.selectVehicle(0,'r34'),true);assert.equal(g.cars[0].carId,'r34');assert.equal(g.P.engine,'RB26Tour');assert.equal(g.cars[0].hud,hud);
+  assert.equal(g.selectVehicle(0,'r34'),true);assert.equal(g.cars[0].carId,'r34');assert.equal(g.P.engine,'JZ2Tour');assert.equal(g.cars[0].hud,hud);
   const old=g.cars[0],flame=old.fxFlame.children[0].geometry;let disposed=0;flame.addEventListener('dispose',()=>disposed++);
   g.applyPlayerBuild(old,{paint:'#447799',spoiler:'gt'});g.selectVehicle(0,'supra');assert.equal(old.root.parent,null);assert.equal(disposed,0);
   g.selectVehicle(0,'r34');assert.equal(g.cars[0].build.paint,'#447799');assert.equal(g.cars[0].build.spoiler,'gt');
@@ -559,13 +552,13 @@ test('V5 quick race launches from the menu and its builder returns to the paused
 });
 test('captured engine banks retain provenance, steady RPM telemetry and independent load takes',async()=>{
   const manifest=JSON.parse(fs.readFileSync(new URL('../Drift Drive/audio/jdm/manifest.json',import.meta.url)));
-  assert.equal(manifest.length,46);assert.equal(manifest.filter(x=>x.sourceKind==='engine-simulator-capture').length,42);
+  assert.equal(manifest.length,14);assert.equal(manifest.filter(x=>x.sourceKind==='engine-simulator-capture').length,14);
   for(const item of manifest){const bytes=fs.readFileSync(new URL('../Drift Drive/audio/jdm/'+item.file,import.meta.url));assert.equal(bytes.toString('ascii',0,4),'OggS');assert.equal(createHash('sha256').update(bytes).digest('hex'),item.sha256);assert.equal(createHash('sha256').update(Buffer.from(context.window.ENGINE_SOUNDS[item.engine][item.layer],'base64')).digest('hex'),item.sha256);assert.ok(item.seconds>1.3);
     if(item.sourceKind==='engine-simulator-capture'){assert.equal(item.license,'MIT');assert.ok(Math.abs(item.measured_rpm.mean-item.reference_rpm)<1);assert.equal(item.seconds,3);}else{assert.equal(item.license,'CC BY 3.0');assert.equal(item.rpm_is_estimated,true);}
   }
   g.setStarted(true);g.initAudio();
-  for(const key of ['JZ1Street','RB26Tour','JZ2Tour','RotaryTour']){
-    g.selectEngine(key);await g.loadEngine(key);const c=g.cars[0],bank=context.window.ENGINE_SOUNDS[key];assert.equal(c.au.layers.length,key==='RotaryTour'?4:14);assert.equal(bank.phaseLocked,false);
+  for(const key of ['JZ2Tour']){
+    g.selectEngine(key);await g.loadEngine(key);const c=g.cars[0],bank=context.window.ENGINE_SOUNDS[key];assert.equal(c.au.layers.length,14);assert.equal(bank.phaseLocked,false);
     c.rpm=3300;c.inp.clutch=false;c.shiftT=0;c.inp.thr=1;g.updAudio(c,1/60,25,0);
     const loaded=c.au.layers.filter(l=>l.load==='on').reduce((n,l)=>n+l.g.gain.value,0);
     c.inp.thr=0;g.updAudio(c,1/60,25,0);
@@ -608,4 +601,48 @@ test('upgrading restores V4 intensity once while retaining other tuning and late
   assert.equal(first.game.P.cameraEnergy,.75);assert.equal(first.game.P.hp,315);
   const saved=JSON.parse(first.context.localStorage.getItem('s14tune'));saved.cameraEnergy=.4;
   const again=loadGame(undefined,{s14tune:JSON.stringify(saved)});assert.equal(again.game.P.cameraEnergy,.4);assert.equal(again.game.P.hp,315);
+});
+
+test('2JZ voice is slightly deeper, bass shaped, and BOV does not disable backfires',async()=>{
+  g.endRace();g.setSplit(false);g.setStarted(true);g.initAudio();g.selectEngine('JZ2Tour','factory');await g.loadEngine('JZ2Tour');const c=g.cars[0];
+  assert.ok(c.au.engineLow.gain.value>0&&c.au.engineHigh.gain.value<0);c.rpm=3300;c.inp.thr=1;c.shiftT=0;c.inp.clutch=false;c.spool=1;g.updAudio(c,1/60,20,0);
+  const on=c.au.layers.find(l=>l.ref===3300&&l.load==='on');assert.ok(Math.abs(on.src.playbackRate.value-c.au.audioRPM/3300*.94)<1e-8);
+  const count=c.au.bovCount||0;c.nextBackfire=0;c.backfireArmed=true;c.inp.thr=0;g.state.AC.currentTime+=1;g.updAudio(c,1/60,20,0);assert.equal(c.au.bovCount,count+1);
+  assert.ok(c.au.lastBov.until-c.au.lastBov.at>.4);assert.ok(c.backfireEvent&&c.backfireEvent.source.buffer);const event=c.backfireEvent;g.state.AC.currentTime=event.at+.02;g.updateSoloFX(0);assert.equal(c.fxFlame.visible,true);g.setStarted(false);
+});
+test('each split viewport contains its own gauge and car-centred minimap at common window sizes',()=>{
+  g.endRace();g.setStarted(true);g.setSplit(true);
+  for(const [width,height] of [[960,600],[1280,720],[1920,1080],[720,480]]){context.innerWidth=width;context.innerHeight=height;g.layoutHud();
+    for(const [slot,c] of g.cars.entries()){const h=c.hud,v=g.playerViewport(slot,width,height);assert.equal(h.viewport.style.left,slot*width/2+'px');assert.equal(h.viewport.style.width,width/2+'px');assert.ok(v.gauge+v.mini+v.margin*2<v.width);assert.equal(h.root.style.right,v.margin+'px');assert.equal(h.analog.canvas.style.width,v.gauge+'px');}
+  }
+  const [a,b]=g.cars;a.x=100;a.z=200;b.x=4800;b.z=-2000;g.updateMinimaps();assert.notEqual(a.hud.mini,b.hud.mini);assert.equal(a.hud.mini.dataset.centerX,'100');assert.equal(b.hud.mini.dataset.centerX,'4800');
+  context.innerWidth=1280;context.innerHeight=720;g.setSplit(false);assert.equal(b.hud.viewport.style.display,'none');g.setStarted(false);
+});
+test('player labels follow each car, update safely and are visible independently per split view',()=>{
+  g.setStarted(true);g.setSplit(true);const [a,b]=g.cars;g.setPlayerName(a,'Marvyn');g.setPlayerName(b,'Guest');assert.equal(a.nameTag.parent,a.root);assert.equal(a.nameTag.userData.playerName,'Marvyn');assert.equal(b.nameTag.userData.playerName,'Guest');
+  a.camMode=0;g.renderView(a,0,0,640,720);assert.equal(a.nameTag.visible,true);assert.equal(b.nameTag.visible,true);a.camMode=3;g.renderView(a,0,0,640,720);assert.equal(a.nameTag.visible,false);assert.equal(b.nameTag.visible,true);
+  g.setSplit(false);g.renderView(a,0,0,1280,720);assert.equal(a.nameTag.visible,false);assert.equal(b.nameTag.visible,false);a.camMode=0;g.setStarted(false);
+});
+test('a fast swept segment awards multiple ordered gates, rejects teleports and wrong directions',()=>{
+  const perf=context.performance;let now=0;context.performance={now:()=>now};g.setSplit(false);g.race.cps=[{x:0,z:0},{x:200,z:0}];g.race.loop=false;g.startRace();now=3001;g.updRace();const c=g.cars[0],p=g.race.players[0],y=c.y;
+  g.race.route=[{x:0,z:0,distance:0},{x:200,z:0,distance:200}];g.race.length=200;g.race.course=[20,40,60].map(distance=>({x:distance,z:0,y,tx:1,tz:0,width:5,distance}));g.race.total=3;p.next=0;p.previous={x:0,z:0,y};p.previousTime=now;p.teleportVersion=c.teleportVersion;
+  c.x=50;c.z=0;c.y=y;now+=100;g.updRace();assert.equal(p.next,2);assert.equal(p.done,false);
+  g.placeCar(c,70,0,0);c.y=y;now+=100;g.updRace();assert.equal(p.next,2);c.x=50;now+=100;g.updRace();assert.equal(p.next,2);c.x=70;now+=100;g.updRace();assert.equal(p.done,true);
+  g.endRace();context.performance=perf;
+});
+test('same-frame finishes use crossing time, and race recovery leaves the next gate ahead',()=>{
+  const perf=context.performance;let now=0;context.performance={now:()=>now};g.setSplit(true);g.presetCourse('coast');g.startRace();now=3001;g.updRace();const last=g.race.course.at(-1);
+  for(const [i,c] of g.cars.entries()){const p=g.race.players[i];p.next=g.race.total-1;p.previous={x:last.x-last.tx*(i?2:6),z:last.z-last.tz*(i?2:6),y:last.y};p.previousTime=now;p.teleportVersion=c.teleportVersion;c.x=last.x+last.tx*(i?6:2);c.z=last.z+last.tz*(i?6:2);c.y=last.y;}
+  now+=100;g.updRace();assert.equal(g.race.winner,2);assert.ok(g.race.players[1].time<g.race.players[0].time);
+  g.startRace();now+=3001;g.updRace();const c=g.cars[0],p=g.race.players[0];p.next=1;g.recoverRaceCar(c);const target=g.race.course[1];assert.ok((c.x-target.x)*target.tx+(c.z-target.z)*target.tz<0);assert.equal(p.penalty,5);g.endRace();g.setSplit(false);context.performance=perf;
+});
+
+test('an exact out-and-back corner still has a usable directional checkpoint',()=>{
+  const route=[{x:0,z:0,distance:0},{x:50,z:0,distance:50},{x:100,z:0,distance:100},{x:50,z:0,distance:150},{x:0,z:0,distance:200}];const gate=g.gateAtDistance(route,100);
+  assert.ok(Math.hypot(gate.tx,gate.tz)>.99);assert.ok(gate.distance<100);assert.equal(g.crossesGate({x:gate.x-5,y:gate.y,z:gate.z},{x:gate.x+5,y:gate.y,z:gate.z},gate),true);
+});
+
+test('old engine saves migrate to 2JZ without losing handling or stored 2JZ tuning',()=>{
+  const fresh=loadGame(undefined,{s14tune:JSON.stringify({engine:'RB26Tour',hp:900,gripR:1.23,cameraEnergy:.4,cameraRevision:'v4-original'}),'s14engineTunes-v1':JSON.stringify({JZ2Tour:{hp:350}})}).game;
+  assert.equal(fresh.P.engine,'JZ2Tour');assert.equal(fresh.P.hp,350);assert.equal(fresh.P.gripR,1.23);assert.equal(fresh.P.cameraEnergy,.4);assert.equal(fresh.P.torque,fresh.ENGINE_PROFILES.JZ2Tour.tune.torque);
 });

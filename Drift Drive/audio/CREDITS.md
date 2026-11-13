@@ -1,3 +1,7 @@
+# Historical audio attribution
+
+The non-2JZ engine banks listed below are no longer shipped or available. The active 2JZ bank, BOV and retained backfire credits are in [jdm/CREDITS.md](jdm/CREDITS.md). The following entries are retained only as attribution history.
+
 # Engine audio sources
 
 ## Current V5 JDM banks
