@@ -1,57 +1,43 @@
-# Drift Drive V5.2 — JDM Nights
+# Drift Drive V5.3 — JDM Nights
 
 A Three.js / Web Audio driving game with free roam, local split-screen, engine
 swaps, drift tuning, and custom road races. Locations are fictional and inspired
 by Japanese landscapes.
 
-## V5 — JDM Nights
+## Current game
 
 Choose **Solo**, **Split Screen**, or **Quick Race** before entering the world,
 then choose your cars and tune them. Press **1/2/3** to select a mode and
 **Enter** to launch; the mode cards also work with a mouse.
 
-The curated garage contains only four JDM legends: **Nissan Silvia S14**,
-**Nissan Skyline GT-R R34**, **Toyota Supra A80** and **Mazda RX-7 FD**.
-Each uses its own original lightweight body silhouette and signature lighting/
-spoiler treatment. These are procedural interpretations, not OEM CAD assets.
-They share the existing arcade contact chassis; choosing a GT-R does not add
-a separate factory AWD simulation. Player 1's car choice selects a matching
-gameplay engine profile and approximate weight; split-screen shares the
-session's engine/handling tune. Each car/slot remembers its own appearance.
+The garage keeps four JDM car bodies: Nissan Silvia S14, Skyline GT-R R34,
+Toyota Supra A80 and Mazda RX-7 FD. Every body now uses a 2JZ swap; all other
+engine profiles and sound banks have been removed. Car body selection retains
+its own appearance and approximate weight. Engine/handling tuning is shared
+by the split-screen session. Removed-engine saves migrate to the player's 2JZ
+tune or baseline while retaining handling, appearance and camera settings.
 
-The pre-start garage offers paint, wheels, spoilers, front/rear bumper options,
-smoke colour, Street/Drift setups and the full engine/gearbox tuning panel.
-Custom body/smoke options remain solo effects, following the V4.1 graphics
-budget. Old player builds/tunes remain readable. Choosing another body does
-not delete exploration progress.
+Before driving, choose player names, paint, wheels, spoilers, bumper options,
+smoke colour, Street/Drift handling and factory/drift/highway 2JZ power builds.
+Each split-screen half has its own gauge overlay and car-centred minimap.
+Names appear above the cars in split-screen; the driver's own label hides in
+hood/cockpit views. Shared map imagery and 10 Hz minimap updates limit overhead.
 
-**Quick Race** supports solo time trials or local split-screen. Pick the Aoi
-Expressway Sprint, Fujimi Mountain Circuit, Shiosai Coastal Sprint or Shiosai
-Tunnel Run, or open the race builder before starting. Saved/custom routes
-continue to work. An incomplete custom route stays in the setup/builder and
-shows a message instead of starting a broken race.
+Quick Race supports solo time trials or split-screen. Pick highway, mountain,
+coast or tunnel routes, or open the race builder before starting. All route
+gates exist before the countdown. Checkpoints use roughly 100 m spacing plus
+sharp-turn gates; directional swept checks handle multiple crossings in a long
+frame. Recovery leaves the next gate ahead (+5 s), teleports earn no gate credit,
+and fractional crossing times settle same-frame finishes. Route progress,
+next-gate arrows and minimap targets are independent for each player.
 
-Every selected route builds its starting arch, intermediate gates and finish/
-lap gate before the countdown. Intermediate spacing is approximately 120 m,
-with extra gates at chosen waypoints. All gates remain in the scene throughout
-the race; normal camera range, fog and terrain occlusion still apply. The map
-shows the checkpoint sequence. An always-on HUD arrow and distance point at the
-next checkpoint independently for each player, including when the racing line
-is hidden. Arrows stop on finish/exit.
-
-The camera is restored verbatim from V4 commit `5ab4783`: all four views,
-follow springs, drift framing, mounted views, motion cues and FOV. Upgrading
-restores V4's 75% camera-intensity default once; later manual changes are saved.
-Other V5/V5.1 features remain in place.
-
-The default six-cylinder audio now uses recordings of full Engine Simulator
-runs at seven held RPMs, with separate throttle-on/off takes. The RX-7 uses a
-credited real-car recording with stabilized rev sweeps and estimated RPM
-references. These replace the earlier simple pulse synthesis. The game plays
-pre-recorded loops and never runs the simulator. See `audio/jdm/CREDITS.md`
-and `tools/engine-sim-exporter/` for exact provenance and reproducible captures.
-The six-cylinder configurations are simulated approximations, not recordings
-of physical factory engines. The exact V4 camera rollback remains intact.
+The camera remains verbatim V4. The sole engine bank contains 14 recordings
+from full Engine Simulator runs, with separate throttle-on/off takes. These
+are simulated configurations, not physical-car microphone recordings.
+The 2JZ voice is slightly deeper, with shelving EQ and a 0.94 rate factor.
+A pressure-dependent BOV whoosh accompanies boosted throttle release.
+The existing backfire sounds, limiter pops and synchronized solo flames remain.
+See `Drift Drive/audio/jdm/CREDITS.md` and `tools/engine-sim-exporter/`.
 
 Radio starts automatically on the first user-initiated mode entry. **J → Cruise
 radio** changes station or turns it off. An explicit Off choice is respected
@@ -438,3 +424,15 @@ Supersedes V5/V5.1 camera changes. `cameraSpring` and `updCam` match V4 commit `
 ## V5.2 recorded engine audio
 
 42 full-simulator captures plus four real RX-7 recording excerpts; independent load takes for the six-cylinder voices, denser RPM coverage and bounded simultaneous mixing. The earlier V5.1 pulse generator is retained only as a historical tool. Camera code remains verbatim V4.
+
+## V5.3 — 2JZ, split-screen HUD and race checkpoints
+
+Supersedes previous engine-roster/audio descriptions: only the 2JZ engine and its 14 full-simulator capture loops are shipped. All four car bodies remain available as 2JZ swaps. Street/Drift handling and editable factory/drift/highway power configurations remain. Old non-2JZ engine saves migrate to the 2JZ baseline (or the player's stored 2JZ tune), retaining handling, paint and the V4 camera settings. Removed engine banks/presets no longer load.
+
+The 2JZ voice plays about one semitone lower (0.94 rate factor), with +3.5 dB low shelving at 240 Hz and -3 dB high shelving at 2.4 kHz. A smooth pressure-dependent BOV whoosh triggers once on a boosted throttle lift, with a cooldown and volume control. The existing backfire samples, triggers, limiter pops and synchronized solo flames are retained. The BOV is filtered-noise sound design, not a microphone recording.
+
+Each split-screen half owns its gauge overlay and car-centred minimap; minimaps share the static road image and update at 10 Hz. Names can be edited before driving, persist with the garage and appear as depth-tested billboards over each car in split-screen. The driver's own tag hides in hood/cockpit views. UI bounds update on window resize.
+
+Race gates cover the full route at roughly 100 m spacing, with extra gates around sharp turns. Exact out-and-back waypoints get a usable approach gate. Swept crossing checks process multiple gates in chronological order during a long frame, preserve direction/width/height checks and ignore teleports. Recovery returns after the last credited gate while leaving the next gate ahead (+5 s). Sub-frame finish times decide simultaneous finishes fairly, and route-distance progress ranks cars through bends. Per-player next gates/minimap targets, finish/lap labels and confirmation cues remain independent. The record key changes to V5.3 because checkpoint/timing rules changed.
+
+V4 camera functions are unchanged. No live engine simulation runs in-game.
