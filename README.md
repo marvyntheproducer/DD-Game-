@@ -1,4 +1,4 @@
-# Drift Drive V5.3 — JDM Nights
+# Drift Drive V5.4 — JDM Nights
 
 A Three.js / Web Audio driving game with free roam, local split-screen, engine
 swaps, drift tuning, and custom road races. Locations are fictional and inspired
@@ -436,3 +436,17 @@ Each split-screen half owns its gauge overlay and car-centred minimap; minimaps 
 Race gates cover the full route at roughly 100 m spacing, with extra gates around sharp turns. Exact out-and-back waypoints get a usable approach gate. Swept crossing checks process multiple gates in chronological order during a long frame, preserve direction/width/height checks and ignore teleports. Recovery returns after the last credited gate while leaving the next gate ahead (+5 s). Sub-frame finish times decide simultaneous finishes fairly, and route-distance progress ranks cars through bends. Per-player next gates/minimap targets, finish/lap labels and confirmation cues remain independent. The record key changes to V5.3 because checkpoint/timing rules changed.
 
 V4 camera functions are unchanged. No live engine simulation runs in-game.
+
+
+## V5.4 — cleaner racing and subtle speed effects
+
+- No overhead player-name sprites in split screen; names remain in the garage.
+- Checkpoints follow fixed-step car trajectories, including curved movement between rendered frames. Sharp reversal gates move onto the approach and actual gate distances are sorted/deduplicated afterwards. Missed gates explicitly prompt a return or recovery (+5 s); ordered, directional and height checks remain enforced. Records use a new V5.4 rules key.
+- **How to Play** in the menu, the **Controls · H** button, or **H** opens a readable Driving / Drifting / Racing guide with separate player controls. The guide pauses driving and race/countdown clocks. H or Esc closes it.
+- Split-screen drafting smoothly reduces aerodynamic drag by up to 14% in a narrow wake, 6–38 m behind an aligned moving car. Same-road, speed, height and wall-contact checks prevent most separated-road/sideways exploits. There is no boost, steering change or extra visual overlay.
+- Short, fading red taillight trails start above **150 km/h**. Both cars share one bounded line buffer/draw. Minimal Motion and system reduced-motion preferences disable trails; resets and pauses clear their history.
+- Guardrails and tunnel walls dissipate tangential speed continuously while scraping, independent of impact force or frame rate, so riding a barrier costs speed. Existing impact response remains.
+
+### V5.4 hands-on checks
+
+Open How to Play from the menu and during a countdown, then verify that time resumes where it stopped. Run all four Quick Race presets and a custom out-and-back course; try a missed arch, reverse crossing and recovery. In split screen, follow another car smoothly at highway speed, then move alongside it to compare the small drag benefit. Verify each viewport, trails around 150 km/h, and reset without a long red streak. Compare a clean corner against sustained guardrail/tunnel-wall scraping. Check real frame rates on the target Mac and Windows machines; automated checks do not establish native performance or subjective driving feel.

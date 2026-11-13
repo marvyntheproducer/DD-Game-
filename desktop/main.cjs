@@ -21,7 +21,7 @@ function installMenu(){
   {label:'Game',submenu:[{label:'Controls & shortcuts',click:showControls},{type:'separator'},...(process.platform==='darwin'?[]:[{role:'quit'}])]},
   {label:'Edit',submenu:[{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'}]},
   {label:'View',submenu:view},{role:'windowMenu'},
-  {label:'Help',submenu:[{label:'Controls & shortcuts',click:showControls},{label:'Open saved-data folder',click:()=>shell.openPath(app.getPath('userData'))},{label:'About Drift Drive',click:()=>dialog.showMessageBox(win,{type:'info',title:'About Drift Drive',message:'Drift Drive',detail:'Desktop '+app.getVersion()+' · JDM Nights V5.3\nCreated by Marvyn De Sousa\nFictional Japanese roads. Original procedural vehicle art.\nAudio and open-source credits are included with the game.'})}]}
+  {label:'Help',submenu:[{label:'Controls & shortcuts',click:showControls},{label:'Open saved-data folder',click:()=>shell.openPath(app.getPath('userData'))},{label:'About Drift Drive',click:()=>dialog.showMessageBox(win,{type:'info',title:'About Drift Drive',message:'Drift Drive',detail:'Desktop '+app.getVersion()+' · JDM Nights V5.4\nCreated by Marvyn De Sousa\nFictional Japanese roads. Original procedural vehicle art.\nAudio and open-source credits are included with the game.'})}]}
  ];
  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }

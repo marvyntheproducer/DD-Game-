@@ -618,10 +618,8 @@ test('each split viewport contains its own gauge and car-centred minimap at comm
   const [a,b]=g.cars;a.x=100;a.z=200;b.x=4800;b.z=-2000;g.updateMinimaps();assert.notEqual(a.hud.mini,b.hud.mini);assert.equal(a.hud.mini.dataset.centerX,'100');assert.equal(b.hud.mini.dataset.centerX,'4800');
   context.innerWidth=1280;context.innerHeight=720;g.setSplit(false);assert.equal(b.hud.viewport.style.display,'none');g.setStarted(false);
 });
-test('player labels follow each car, update safely and are visible independently per split view',()=>{
-  g.setStarted(true);g.setSplit(true);const [a,b]=g.cars;g.setPlayerName(a,'Marvyn');g.setPlayerName(b,'Guest');assert.equal(a.nameTag.parent,a.root);assert.equal(a.nameTag.userData.playerName,'Marvyn');assert.equal(b.nameTag.userData.playerName,'Guest');
-  a.camMode=0;g.renderView(a,0,0,640,720);assert.equal(a.nameTag.visible,true);assert.equal(b.nameTag.visible,true);a.camMode=3;g.renderView(a,0,0,640,720);assert.equal(a.nameTag.visible,false);assert.equal(b.nameTag.visible,true);
-  g.setSplit(false);g.renderView(a,0,0,1280,720);assert.equal(a.nameTag.visible,false);assert.equal(b.nameTag.visible,false);a.camMode=0;g.setStarted(false);
+test('split-screen cars retain menu names without overhead name sprites',()=>{
+ g.setSplit(true);for(const [i,c] of g.cars.entries()){g.setPlayerName(c,i?'Guest':'Marvyn');assert.equal(c.playerName,i?'Guest':'Marvyn');assert.equal(c.nameTag,undefined);}g.setSplit(false);
 });
 test('a fast swept segment awards multiple ordered gates, rejects teleports and wrong directions',()=>{
   const perf=context.performance;let now=0;context.performance={now:()=>now};g.setSplit(false);g.race.cps=[{x:0,z:0},{x:200,z:0}];g.race.loop=false;g.startRace();now=3001;g.updRace();const c=g.cars[0],p=g.race.players[0],y=c.y;
@@ -645,4 +643,51 @@ test('an exact out-and-back corner still has a usable directional checkpoint',()
 test('old engine saves migrate to 2JZ without losing handling or stored 2JZ tuning',()=>{
   const fresh=loadGame(undefined,{s14tune:JSON.stringify({engine:'RB26Tour',hp:900,gripR:1.23,cameraEnergy:.4,cameraRevision:'v4-original'}),'s14engineTunes-v1':JSON.stringify({JZ2Tour:{hp:350}})}).game;
   assert.equal(fresh.P.engine,'JZ2Tour');assert.equal(fresh.P.hp,350);assert.equal(fresh.P.gripR,1.23);assert.equal(fresh.P.cameraEnergy,.4);assert.equal(fresh.P.torque,fresh.ENGINE_PROFILES.JZ2Tour.tune.torque);
+});
+
+test('help topics are readable, pause input and preserve countdown/race clocks',()=>{
+ const perf=context.performance;let now=1000;context.performance={now:()=>now};g.setStarted(true);g.presetCourse('coast');g.startRace();const before=g.race.t0;
+ g.keys.KeyW=true;g.cars[0].inp.thr=1;g.setHelpOpen(true);assert.equal(g.helpOpen,true);assert.equal(g.keys.KeyW,undefined);assert.equal(g.cars[0].inp.thr,0);
+ for(const topic of ['drive','drift','race']){g.showHelpTopic(topic);assert.equal(context.document.getElementById('instructions').dataset.topic,topic);assert.ok(context.document.getElementById('help-content').innerHTML.length>300);}
+ now+=8000;g.setHelpOpen(false);assert.equal(g.race.t0,before+8000);g.updRace();assert.equal(g.race.state,'count');now+=3001;g.updRace();assert.equal(g.race.state,'run');const start=g.race.tStart,previous=g.race.players[0].previousTime;
+ g.setHelpOpen(true);now+=5000;g.setHelpOpen(false);assert.equal(g.race.tStart,start+5000);assert.equal(g.race.players[0].previousTime,previous+5000);g.endRace();g.setStarted(false);context.performance=perf;
+});
+
+test('physics motion samples detect a curved gate crossing missed by a render-frame chord',()=>{
+ const perf=context.performance;let now=0;context.performance={now:()=>now};g.setSplit(false);g.presetCourse('coast');g.startRace();now=3001;g.updRace();const c=g.cars[0],p=g.race.players[0],y=c.y;
+ g.race.course=[{x:0,z:0,y,tx:1,tz:0,width:2,distance:50}];g.race.total=1;p.next=0;p.previous={x:-5,z:20,y};p.previousTime=now;
+ c.x=-1;c.z=0;g.sampleRaceMotion(now+10);c.x=1;g.sampleRaceMotion(now+20);c.x=5;c.z=20;now+=30;g.updRace();assert.equal(p.done,true);assert.equal(p.samples.length,0);g.endRace();context.performance=perf;
+});
+
+test('preset checkpoints stay ordered and can be crossed along their chosen route',()=>{
+ for(const kind of ['highway','mountain','coast','tunnel']){g.presetCourse(kind);let last=-1;
+  for(const gate of g.race.course){assert.ok(gate.distance>last+10,kind+' gate spacing');last=gate.distance;
+   const a=g.pointAtRoute(g.race.route,Math.max(0,gate.distance-1)),b=g.pointAtRoute(g.race.route,Math.min(g.race.length,gate.distance+1));
+   // At the finish, extend one metre along the approach tangent.
+   if(gate.distance===g.race.length){b.x+=gate.tx;b.z+=gate.tz;}
+   assert.equal(g.crossesGate({...a,y:gate.y},{...b,y:gate.y},gate),true,kind+' at '+gate.distance);
+  }
+ }
+});
+
+test('barrier scrape removes speed without pushing upward and is timestep independent',()=>{
+ const run=hz=>{const c={vwx:40,vwz:0,wR:120,y:7};for(let i=0;i<hz;i++){c.scrapedThisTick=false;g.scrapeBarrier(c,0,1,1/hz);g.scrapeBarrier(c,0,1,1/hz);}return c;};
+ const a=run(240),b=run(60);assert.ok(a.vwx<20&&a.vwx>10);assert.ok(Math.abs(a.vwx-b.vwx)<1e-9);assert.equal(a.vwz,0);assert.equal(a.y,7);assert.ok(a.wR<120);
+});
+
+test('split-screen slipstream benefits only an aligned following car on the same road',()=>{
+ g.setSplit(true);const [a,b]=g.cars,ar=g.arrays;const edge=g.EDGES.find(e=>e.type==='highway'),i=edge.s+Math.floor(edge.n/2),tx=ar.TXa[i],tz=ar.TZa[i],yaw=Math.atan2(-tz,tx);
+ const reset=()=>{g.placeCar(a,ar.RX[i]-tx*15,ar.RZ[i]-tz*15,yaw);g.placeCar(b,ar.RX[i],ar.RZ[i],yaw);for(const c of [a,b]){c.y=ar.RH[i]+.4;c.contact=1;c.vwx=tx*30;c.vwz=tz*30;c.frozen=false;c.wallContact=0;c.draft=0;}};
+ reset();for(let k=0;k<480;k++)g.updateSlipstream(1/240);assert.ok(a.draft>.04&&a.draft<=.14);assert.equal(b.draft,0);
+ reset();b.yaw+=Math.PI;for(let k=0;k<240;k++)g.updateSlipstream(1/240);assert.equal(a.draft,0);
+ reset();a.x+=-tz*8;a.z+=tx*8;g.updateSlipstream(1);assert.equal(a.draft,0);
+ reset();a.wallContact=1;g.updateSlipstream(.01);assert.equal(a.draft,0);
+ g.setSplit(false);a.draft=.1;g.updateSlipstream(.01);assert.equal(a.draft,0);
+});
+
+test('speed trails have a strict 150 km/h threshold, bounded geometry and no teleport bridges',()=>{
+ g.endRace();g.setStarted(true);g.P.effects=1;const c=g.cars[0];c.vwx=149/3.6;c.vwz=0;g.updateSpeedTrails(1/60);assert.equal(g.speedTrails.mesh.visible,false);
+ c.vwx=180/3.6;for(let i=0;i<100;i++){c.x+=.8;g.updVisual(c,1/60);g.updateSpeedTrails(1/60);}assert.equal(g.speedTrails.mesh.visible,true);assert.ok(g.speedTrails.geometry.drawRange.count<=96);assert.equal(c.speedTrail.points.length,78);
+ g.placeCar(c,c.x+500,c.z,c.yaw);c.vwx=180/3.6;g.updVisual(c,1/60);g.updateSpeedTrails(1/60);assert.equal(g.speedTrails.mesh.visible,false);
+ g.P.effects=0;g.updateSpeedTrails(1/60);assert.equal(c.speedTrail,null);g.P.effects=1;g.setStarted(false);
 });
