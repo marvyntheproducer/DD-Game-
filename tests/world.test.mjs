@@ -678,7 +678,7 @@ test('barrier scrape removes speed without pushing upward and is timestep indepe
 test('split-screen slipstream benefits only an aligned following car on the same road',()=>{
  g.setSplit(true);const [a,b]=g.cars,ar=g.arrays;const edge=g.EDGES.find(e=>e.type==='highway'),i=edge.s+Math.floor(edge.n/2),tx=ar.TXa[i],tz=ar.TZa[i],yaw=Math.atan2(-tz,tx);
  const reset=()=>{g.placeCar(a,ar.RX[i]-tx*15,ar.RZ[i]-tz*15,yaw);g.placeCar(b,ar.RX[i],ar.RZ[i],yaw);for(const c of [a,b]){c.y=ar.RH[i]+.4;c.contact=1;c.vwx=tx*30;c.vwz=tz*30;c.frozen=false;c.wallContact=0;c.draft=0;}};
- reset();for(let k=0;k<480;k++)g.updateSlipstream(1/240);assert.ok(a.draft>.04&&a.draft<=.14);assert.equal(b.draft,0);
+ reset();for(let k=0;k<480;k++)g.updateSlipstream(1/240);assert.ok(a.draft>.04&&a.draft<=.30);assert.equal(b.draft,0);
  reset();b.yaw+=Math.PI;for(let k=0;k<240;k++)g.updateSlipstream(1/240);assert.equal(a.draft,0);
  reset();a.x+=-tz*8;a.z+=tx*8;g.updateSlipstream(1);assert.equal(a.draft,0);
  reset();a.wallContact=1;g.updateSlipstream(.01);assert.equal(a.draft,0);
@@ -690,4 +690,66 @@ test('speed trails have a strict 150 km/h threshold, bounded geometry and no tel
  c.vwx=180/3.6;for(let i=0;i<100;i++){c.x+=.8;g.updVisual(c,1/60);g.updateSpeedTrails(1/60);}assert.equal(g.speedTrails.mesh.visible,true);assert.ok(g.speedTrails.geometry.drawRange.count<=96);assert.equal(c.speedTrail.points.length,78);
  g.placeCar(c,c.x+500,c.z,c.yaw);c.vwx=180/3.6;g.updVisual(c,1/60);g.updateSpeedTrails(1/60);assert.equal(g.speedTrails.mesh.visible,false);
  g.P.effects=0;g.updateSpeedTrails(1/60);assert.equal(c.speedTrail,null);g.P.effects=1;g.setStarted(false);
+});
+
+
+test('junction waypoints do not send racers down a side branch and back',()=>{
+ const {NODES}=g.world,ar=g.arrays;
+ for(let node=0;node<NODES.length;node++){
+  const arms=g.EDGES.map((e,index)=>({e,index})).filter(({e})=>e.a===node||e.b===node);if(arms.length<3)continue;
+  const point=(arm,metres)=>{const {e,index}=arm,arc=e.a===node?metres:e.length-metres;let k=0;while(k<e.n-1&&e.arc[k]<arc)k++;return {x:ar.RX[e.s+k],z:ar.RZ[e.s+k],edge:index};};
+  const a=point(arms[0],140),b=point(arms[1],140),spur=point(arms[2],5);
+  const anchor=g.raceAnchor(spur);assert.equal(anchor.node,node);
+  g.race.cps=[a,spur,b];g.race.loop=false;g.prepareCourse();assert.ok(g.race.route.length>4);
+  assert.equal(g.race.cps[1].node,node);
+  const used=new Set(g.race.route.filter(p=>p.edge!==undefined).map(p=>p.edge));
+  assert.equal(used.has(arms[2].index),false,'junction '+node+' must not visit side arm');
+  for(const gate of g.race.course){const p=g.pointAtRoute(g.race.route,gate.distance);assert.ok(Math.hypot(p.x-gate.x,p.z-gate.z)<.001);if(gate.distance<g.race.length-12)assert.ok(Math.hypot(gate.x-NODES[node][0],gate.z-NODES[node][1])>=18,'gate must be outside junction');}
+ }
+});
+
+test('exact road anchors remain on the selected edge with no endpoint overshoot',()=>{
+ const ar=g.arrays,e=g.EDGES.find(e=>e.type==='highway'),edge=g.EDGES.indexOf(e),i=e.s+Math.floor(e.n*.4);
+ const a={x:ar.RX[i]+(ar.RX[i+1]-ar.RX[i])*.73,z:ar.RZ[i]+(ar.RZ[i+1]-ar.RZ[i])*.73,edge};
+ const b={x:ar.RX[i+60]+(ar.RX[i+61]-ar.RX[i+60])*.27,z:ar.RZ[i+60]+(ar.RZ[i+61]-ar.RZ[i+60])*.27,edge};
+ const anchor=g.raceAnchor(a);assert.equal(anchor.edge,edge);assert.ok(Math.hypot(anchor.x-a.x,anchor.z-a.z)<.0001);
+ for(const [start,end] of [[a,b],[b,a]]){const route=g.roadLeg(start,end);let last=g.raceAnchor(start).arc;const direction=Math.sign(g.raceAnchor(end).arc-last);
+  for(const p of route){const current=g.raceAnchor(p);assert.equal(current.edge,edge);assert.ok((current.arc-last)*direction>=-1e-5);last=current.arc;}
+ }
+});
+
+test('a deliberate out-and-back away from a junction is retained',()=>{
+ const e=g.EDGES.find(e=>e.type==='coast'),ar=g.arrays,i=e.s+Math.floor(e.n/2),edge=g.EDGES.indexOf(e);
+ const a={x:ar.RX[i-70],z:ar.RZ[i-70],edge},b={x:ar.RX[i],z:ar.RZ[i],edge};
+ g.race.cps=[a,b,a];g.race.loop=false;g.prepareCourse();assert.ok(g.race.length>150);assert.equal(g.race.cps[1].edge,edge);
+ const peak=g.race.route.reduce((best,p)=>Math.hypot(p.x-b.x,p.z-b.z)<Math.hypot(best.x-b.x,best.z-b.z)?p:best,g.race.route[0]);assert.ok(Math.hypot(peak.x-b.x,peak.z-b.z)<.001);
+});
+
+test('stronger drafting reaches 60 metres, respects height and leaves the leader unaffected',()=>{
+ g.endRace();g.setSplit(true);g.setStarted(true);const [a,b]=g.cars,ar=g.arrays,e=g.EDGES.find(e=>e.type==='highway'),i=e.s+Math.floor(e.n/2),tx=ar.TXa[i],tz=ar.TZa[i],yaw=Math.atan2(-tz,tx);
+ const setup=gap=>{g.placeCar(a,ar.RX[i]-tx*gap,ar.RZ[i]-tz*gap,yaw);g.placeCar(b,ar.RX[i],ar.RZ[i],yaw);for(const c of [a,b]){c.contact=1;c.vwx=tx*35;c.vwz=tz*35;c.frozen=false;c.y=g.nearestRoad(c.x,c.z).h;}};
+ setup(18);for(let k=0;k<720;k++)g.updateSlipstream(1/240);assert.ok(a.draft>.24&&a.draft<=.30);assert.equal(b.draft,0);
+ setup(55);for(let k=0;k<720;k++)g.updateSlipstream(1/240);assert.ok(a.draft>.03,'wake should remain useful beyond the old 38m limit');
+ setup(61);g.updateSlipstream(1);assert.equal(a.draft,0);setup(18);a.y+=4;g.updateSlipstream(1);assert.equal(a.draft,0);
+ setup(18);a.draft=.25;g.P.effects=1;g.updateDraftVisuals();assert.ok(Number(a.hud.draftFX.style.opacity)>0);assert.equal(b.hud.draftFX.style.opacity,'0');
+ g.P.effects=0;g.updateDraftVisuals();assert.equal(a.hud.draftFX.style.opacity,'0');g.P.effects=1;g.setSplit(false);g.updateDraftVisuals();assert.equal(a.hud.draftFX.style.opacity,'0');g.setStarted(false);
+});
+
+test('split race catch-up follows course progress, fades near a tie and switches after overtaking',()=>{
+ g.setSplit(true);g.setStarted(true);g.race.active=true;g.race.state='run';g.race.loop=false;g.race.cps=[{x:0,z:0},{x:200,z:0}];
+ g.race.route=[{x:0,z:0,distance:0},{x:200,z:0,distance:200}];g.race.length=200;g.race.course=[{x:200,z:0,tx:1,tz:0,distance:200,width:6}];
+ g.race.players=[0,1].map(()=>({next:0,done:false}));const [a,b]=g.cars;
+ for(const c of [a,b])Object.assign(c,{z:0,y:0,vwx:20,vwz:0,contact:1,frozen:false,wallContact:0,gear:2,raceBoost:0,inp:{thr:1,brk:0,hb:false,clutch:false}});
+ a.x=40;b.x=100;for(let k=0;k<720;k++)g.updateRaceBoost(1/240);assert.ok(a.raceBoost>.069&&a.raceBoost<=.07);assert.equal(b.raceBoost,0);
+ a.x=120;g.updateRaceBoost(1);assert.equal(a.raceBoost,0);assert.ok(b.raceBoost>0);
+ a.x=102;b.x=100;g.updateRaceBoost(1);assert.equal(a.raceBoost,0);assert.equal(b.raceBoost,0);
+ a.x=50;b.x=100;a.inp.brk=1;g.updateRaceBoost(1);assert.equal(a.raceBoost,0);a.inp.brk=0;a.vwx=-20;g.updateRaceBoost(1);assert.equal(a.raceBoost,0);a.vwx=20;
+ g.race.players[1].done=true;g.updateRaceBoost(1);assert.equal(a.raceBoost,0);g.race.players[1].done=false;g.race.state='count';g.updateRaceBoost(1);assert.equal(a.raceBoost,0);
+ g.endRace();g.setSplit(false);g.updateRaceBoost(1);assert.equal(a.raceBoost,0);g.setStarted(false);
+});
+
+test('catch-up adds seven percent positive engine torque while respecting the limiter',()=>{
+ const c=g.cars[0],q=g.nearestRoad(0,-1600);const run=boost=>{g.placeCar(c,q.px,q.pz,Math.atan2(-q.tz,q.tx));g.prePhys(c);c.raceBoost=boost;c.vwx=q.tx*25;c.vwz=q.tz*25;c.wR=25/.32;c.gear=2;c.rpm=4000;c.inp={thr:1,brk:0,hb:false,clutch:false};g.step(c,1/240);return c.driveTorque;};
+ const base=run(0),boosted=run(.07);assert.ok(base>0);assert.ok(Math.abs(boosted/base-1.07)<1e-6);
+ c.cutT=.04;g.step(c,1/240);assert.equal(c.driveTorque,0);c.raceBoost=0;
 });
