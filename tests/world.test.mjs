@@ -728,19 +728,19 @@ test('a deliberate out-and-back away from a junction is retained',()=>{
 test('stronger drafting reaches 60 metres, respects height and leaves the leader unaffected',()=>{
  g.endRace();g.setSplit(true);g.setStarted(true);const [a,b]=g.cars,ar=g.arrays,e=g.EDGES.find(e=>e.type==='highway'),i=e.s+Math.floor(e.n/2),tx=ar.TXa[i],tz=ar.TZa[i],yaw=Math.atan2(-tz,tx);
  const setup=gap=>{g.placeCar(a,ar.RX[i]-tx*gap,ar.RZ[i]-tz*gap,yaw);g.placeCar(b,ar.RX[i],ar.RZ[i],yaw);for(const c of [a,b]){c.contact=1;c.vwx=tx*35;c.vwz=tz*35;c.frozen=false;c.y=g.nearestRoad(c.x,c.z).h;}};
- setup(18);for(let k=0;k<720;k++)g.updateSlipstream(1/240);assert.ok(a.draft>.24&&a.draft<=.30);assert.equal(b.draft,0);
+ setup(18);for(let k=0;k<720;k++)g.updateSlipstream(1/240);assert.ok(a.draft>.24&&a.draft<=.30);assert.equal(b.draft,0);assert.ok(a.draftSpeedBonus>5&&a.draftSpeedBonus<=6.001);for(let k=0;k<720;k++)g.updateSlipstream(1/240);assert.ok(Math.abs(a.draftSpeedBonus*3.6-30)<.01);assert.ok(Math.abs(a.draftTargetSpeed*3.6-156)<.01);assert.equal(b.draftTargetSpeed,0);
  setup(55);for(let k=0;k<720;k++)g.updateSlipstream(1/240);assert.ok(a.draft>.03,'wake should remain useful beyond the old 38m limit');
- setup(61);g.updateSlipstream(1);assert.equal(a.draft,0);setup(18);a.y+=4;g.updateSlipstream(1);assert.equal(a.draft,0);
+ setup(61);g.updateSlipstream(1);assert.equal(a.draft,0);assert.equal(a.draftTargetSpeed,0);assert.equal(a.draftSpeedBonus,0);setup(18);a.y+=4;g.updateSlipstream(1);assert.equal(a.draft,0);
  setup(18);a.draft=.25;g.P.effects=1;g.updateDraftVisuals();assert.ok(Number(a.hud.draftFX.style.opacity)>0);assert.equal(b.hud.draftFX.style.opacity,'0');
  g.P.effects=0;g.updateDraftVisuals();assert.equal(a.hud.draftFX.style.opacity,'0');g.P.effects=1;g.setSplit(false);g.updateDraftVisuals();assert.equal(a.hud.draftFX.style.opacity,'0');g.setStarted(false);
 });
 
-test('split race catch-up follows course progress, fades near a tie and switches after overtaking',()=>{
+test('split race catch-up targets forty percent more speed and switches after overtaking',()=>{
  g.setSplit(true);g.setStarted(true);g.race.active=true;g.race.state='run';g.race.loop=false;g.race.cps=[{x:0,z:0},{x:200,z:0}];
  g.race.route=[{x:0,z:0,distance:0},{x:200,z:0,distance:200}];g.race.length=200;g.race.course=[{x:200,z:0,tx:1,tz:0,distance:200,width:6}];
  g.race.players=[0,1].map(()=>({next:0,done:false}));const [a,b]=g.cars;
- for(const c of [a,b])Object.assign(c,{z:0,y:0,vwx:20,vwz:0,contact:1,frozen:false,wallContact:0,gear:2,raceBoost:0,inp:{thr:1,brk:0,hb:false,clutch:false}});
- a.x=40;b.x=100;for(let k=0;k<720;k++)g.updateRaceBoost(1/240);assert.ok(a.raceBoost>.069&&a.raceBoost<=.07);assert.equal(b.raceBoost,0);
+ for(const c of [a,b])Object.assign(c,{z:0,y:0,yaw:0,vwx:20,vwz:0,contact:1,frozen:false,wallContact:0,gear:2,raceBoost:0,inp:{thr:1,brk:0,hb:false,clutch:false}});
+ a.x=40;b.x=100;for(let k=0;k<720;k++)g.updateRaceBoost(1/240);assert.equal(a.raceBoost,.4);assert.equal(a.raceTargetSpeed,28);assert.equal(b.raceBoost,0);
  a.x=120;g.updateRaceBoost(1);assert.equal(a.raceBoost,0);assert.ok(b.raceBoost>0);
  a.x=102;b.x=100;g.updateRaceBoost(1);assert.equal(a.raceBoost,0);assert.equal(b.raceBoost,0);
  a.x=50;b.x=100;a.inp.brk=1;g.updateRaceBoost(1);assert.equal(a.raceBoost,0);a.inp.brk=0;a.vwx=-20;g.updateRaceBoost(1);assert.equal(a.raceBoost,0);a.vwx=20;
@@ -748,8 +748,27 @@ test('split race catch-up follows course progress, fades near a tie and switches
  g.endRace();g.setSplit(false);g.updateRaceBoost(1);assert.equal(a.raceBoost,0);g.setStarted(false);
 });
 
-test('catch-up adds seven percent positive engine torque while respecting the limiter',()=>{
- const c=g.cars[0],q=g.nearestRoad(0,-1600);const run=boost=>{g.placeCar(c,q.px,q.pz,Math.atan2(-q.tz,q.tx));g.prePhys(c);c.raceBoost=boost;c.vwx=q.tx*25;c.vwz=q.tz*25;c.wR=25/.32;c.gear=2;c.rpm=4000;c.inp={thr:1,brk:0,hb:false,clutch:false};g.step(c,1/240);return c.driveTorque;};
- const base=run(0),boosted=run(.07);assert.ok(base>0);assert.ok(Math.abs(boosted/base-1.07)<1e-6);
- c.cutT=.04;g.step(c,1/240);assert.equal(c.driveTorque,0);c.raceBoost=0;
+test('speed assists produce the requested road speeds, respect brakes and do not stack targets',()=>{
+ g.setSplit(true);g.setStarted(true);g.race.active=true;g.race.state='run';
+ const c={yaw:0,vwx:100/3.6,vwz:0,vy:0,contact:1,frozen:false,wallContact:0,inWater:false,gear:3,shiftT:0,inp:{thr:1,brk:0,hb:false,clutch:false},draftEligible:true,draftTargetSpeed:130/3.6,raceEligible:false};
+ const run=hz=>{let speed=100/3.6;for(let k=0;k<hz*8;k++){const base=-1.5,extra=g.speedAssistAcceleration(c,speed,base,1/hz);assert.ok(extra>=0&&extra<=8);speed+=(base+extra)/hz;}return speed*3.6;};
+ assert.ok(Math.abs(run(240)-130)<.1);assert.ok(Math.abs(run(60)-run(240))<.03);
+ c.raceEligible=true;c.raceTargetSpeed=140/3.6;assert.equal(g.speedAssistTarget(c),140/3.6);assert.ok(Math.abs(run(240)-140)<.1);
+ assert.match(g.speedAssistLabel(c),/CATCH-UP.*140/);c.inp.brk=1;assert.equal(g.speedAssistAcceleration(c,25,-3,1/240),0);assert.equal(g.speedAssistLabel(c),'');c.inp.brk=0;
+ c.inp.hb=true;assert.equal(g.speedAssistAcceleration(c,25,-3,1/240),0);c.inp.hb=false;c.contact=0;assert.equal(g.speedAssistAcceleration(c,25,-3,1/240),0);c.contact=1;
+ c.wallContact=.1;assert.equal(g.speedAssistAcceleration(c,25,-3,1/240),0);c.wallContact=0;
+ assert.equal(g.speedAssistAcceleration(c,25,-3,1/240,12),0);assert.equal(g.speedAssistAcceleration(c,50,-3,1/240),0);
+ c.draftTargetSpeed=200;c.raceTargetSpeed=200;assert.equal(g.speedAssistTarget(c),g.ASSIST_SPEED_CAP);
+ g.clearSpeedAssists(c);assert.equal(g.speedAssistTarget(c),0);g.endRace();g.setSplit(false);g.setStarted(false);
+});
+
+// Drive the actual physical car, not only eligibility flags, to make sure the
+// assist is strong enough to overcome road drag with an underpowered engine.
+test('actual vehicle physics reaches forty-percent catch-up speed with an underpowered engine',()=>{
+ g.endRace();g.setSplit(true);g.setStarted(true);g.race.active=true;g.race.state='run';const c=g.cars[0],ar=g.arrays,e=g.EDGES.find(e=>e.type==='highway'),i=e.s+Math.floor(e.n/2),tx=ar.TXa[i],tz=ar.TZa[i];
+ const previous={hp:g.P.hp,torque:g.P.torque,boost:g.P.boost};g.P.hp=100;g.P.torque=100;g.P.boost=0;
+ const run=assist=>{g.placeCar(c,ar.RX[i],ar.RZ[i],Math.atan2(-tz,tx));g.prePhys(c);c.vwx=tx*100/3.6;c.vwz=tz*100/3.6;c.wR=(100/3.6)/.32;c.gear=3;c.inp={thr:1,brk:0,hb:false,clutch:false};
+  for(let k=0;k<240*7;k++){c.raceEligible=assist;c.raceTargetSpeed=140/3.6;g.step(c,1/240);}return Math.hypot(c.vwx,c.vwz)*3.6;};
+ const unassisted=run(false),assisted=run(true);assert.ok(assisted>137,'actual road speed '+assisted);assert.ok(assisted>unassisted+20,assisted+' vs '+unassisted);
+ Object.assign(g.P,previous);g.endRace();g.setSplit(false);g.setStarted(false);
 });
