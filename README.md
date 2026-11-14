@@ -1,4 +1,4 @@
-# Drift Drive V5.6 — JDM Nights
+# Drift Drive V5.7 — JDM Nights
 
 A Three.js / Web Audio driving game with free roam, local split-screen, engine
 swaps, drift tuning, and custom road races. Locations are fictional and inspired
@@ -472,3 +472,14 @@ Split-screen race catch-up now targets **140% of the leading car's forward speed
 Both assists use bounded forward acceleration, with compensation for drag, so they can reach the target even when a small engine would otherwise run out of power. There is no velocity jump or forced slowdown. Releasing the accelerator, braking, handbraking, clutching, shifting, going airborne, scraping a wall or sliding strongly sideways stops added acceleration. Leaving the wake, resetting, overtaking or ending the race clears the relevant target. Momentum is retained naturally. Cameras, route fixes, 2JZ audio, BOV and backfire remain unchanged. V5.6 uses a new race-record rules key.
 
 Manual checks: hold the lead car at 100 km/h and follow on a highway, first in free driving and then in a race. Confirm the target readout builds toward 130 km/h in the wake and 140 km/h for the trailing racer, and compare against the actual speedometer. Brake, shift, leave the wake, swap positions and reset; check that acceleration assistance withdraws without a velocity snap. Native feel and frame rate still require play-testing on the target machines.
+
+
+## V5.7 — drift-friendly, reliable two-player assists
+
+Sideways body angle no longer disables added acceleration. Drafting uses travel direction for its wake and following check, so aligned cars can draft while their bodies are sideways. Extra acceleration follows the existing velocity vector, preserving the drift direction rather than pulling the car toward its nose. The +30 km/h slipstream and 140% race catch-up targets, gradual build-up and 400 km/h assist ceiling remain.
+
+Fixed two causes of intermittent catch-up: smoothed brake input used to remain slightly positive after release, while eligibility required an exact zero; the shared 5% brake deadzone now permits normal release and minor controller noise. Catch-up now compares movement with the local route segment, instead of a distant checkpoint's heading, and measures the leader's actual travel speed instead of projecting it onto a sideways body. The physics tick prepares both cars and computes both targets from the same pre-movement state before moving either car.
+
+Drafting can cross connected road edges at a junction when the wake stays over pavement. Non-connected roads and paths through scenery remain rejected. The readout identifies the race leader and shows temporary blockers such as BRAKING, SHIFTING, CLUTCH or ACCELERATE instead of silently disappearing. Genuine braking, handbrake/clutch input, shifts, wall contact, water and airborne motion still pause acceleration. Tests cover both player slots, swapped positions, long drift angles, brake release through real input smoothing, bends, connected road seams, lap progress, HUD ownership and actual vehicle speed. Cameras, checkpoint rules and audio remain unchanged; race records use V5.7 rules.
+
+Manual checks: race with both keyboard control sets or two controllers, swap the leader several times, brake and release on each player, then repeat while drifting and approaching a junction. Verify both players get the same assistance when behind, the readout explains genuine pauses, and the car keeps its slide angle while receiving acceleration. Confirm the assists return after release, recovery and overtakes, and compare native frame rate on the target machines.
