@@ -1,4 +1,4 @@
-# Drift Drive V5.4 — JDM Nights
+# Drift Drive V5.5 — JDM Nights
 
 A Three.js / Web Audio driving game with free roam, local split-screen, engine
 swaps, drift tuning, and custom road races. Locations are fictional and inspired
@@ -450,3 +450,14 @@ V4 camera functions are unchanged. No live engine simulation runs in-game.
 ### V5.4 hands-on checks
 
 Open How to Play from the menu and during a countdown, then verify that time resumes where it stopped. Run all four Quick Race presets and a custom out-and-back course; try a missed arch, reverse crossing and recovery. In split screen, follow another car smoothly at highway speed, then move alongside it to compare the small drag benefit. Verify each viewport, trails around 150 km/h, and reset without a long red streak. Compare a clean corner against sustained guardrail/tunnel-wall scraping. Check real frame rates on the target Mac and Windows machines; automated checks do not establish native performance or subjective driving feel.
+
+
+## V5.5 — stronger drafting and continuous junction routes
+
+Split-screen drafting now reaches **60 metres**, builds more promptly, and reduces aerodynamic drag by up to **30%** (previously 14%). The wake remains narrow and directional. Road-height-relative checks allow hills while rejecting vertically separated cars; quarter/midpoint road checks reject wakes across scenery. Four faint edge streaks fade with the actual wake strength in the following player's viewport. Minimal Motion / system reduced-motion preferences disable the visual cue.
+
+Race waypoints inside a junction snap to its shared graph node, rather than briefly routing down a side arm and back. Other waypoints retain their selected road and precise position along its segment. Route legs sample only between those exact positions, avoiding rounded-sample reversals at their ends. Intermediate checkpoint arches near branching intersections move forward along the chosen route onto the exit road. The map, line, gates and navigation arrow all use that same route. Deliberately placed out-and-back courses away from junctions remain supported; existing saved courses are normalized when loaded. Records use the new V5.5 rules key.
+
+In a two-player race, the trailing unfinished racer gets up to **7% extra positive engine torque** while accelerating forward. Eligibility uses ordered course progress, including lap/checkpoint count, rather than straight-line car separation. The assistance builds smoothly, tapers as the gap closes, and stops when the car leads, brakes, clutches, scrapes a wall, drives backwards, or either player finishes. It changes neither steering/grip nor the limiter; it is not a fixed 7% speed increase. Free driving and solo races do not receive this catch-up assistance.
+
+Manual checks: build a route through a three-way junction with a waypoint near the centre, then repeat in reverse and load an older saved course. Confirm arches follow the chosen exit without a side-road U-turn. On a highway, follow at 20, 50 and 60 metres and move out of the wake; verify only the following viewport has faint streaks. In a split-screen race, swap positions and compare acceleration, then brake, finish or leave the race to confirm catch-up withdraws. Native performance and handling still require play-testing on the target machines.
