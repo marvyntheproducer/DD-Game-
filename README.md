@@ -1,4 +1,4 @@
-# Drift Drive V5.5 — JDM Nights
+# Drift Drive V5.6 — JDM Nights
 
 A Three.js / Web Audio driving game with free roam, local split-screen, engine
 swaps, drift tuning, and custom road races. Locations are fictional and inspired
@@ -461,3 +461,14 @@ Race waypoints inside a junction snap to its shared graph node, rather than brie
 In a two-player race, the trailing unfinished racer gets up to **7% extra positive engine torque** while accelerating forward. Eligibility uses ordered course progress, including lap/checkpoint count, rather than straight-line car separation. The assistance builds smoothly, tapers as the gap closes, and stops when the car leads, brakes, clutches, scrapes a wall, drives backwards, or either player finishes. It changes neither steering/grip nor the limiter; it is not a fixed 7% speed increase. Free driving and solo races do not receive this catch-up assistance.
 
 Manual checks: build a route through a three-way junction with a waypoint near the centre, then repeat in reverse and load an older saved course. Confirm arches follow the chosen exit without a side-road U-turn. On a highway, follow at 20, 50 and 60 metres and move out of the wake; verify only the following viewport has faint streaks. In a split-screen race, swap positions and compare acceleration, then brake, finish or leave the race to confirm catch-up withdraws. Native performance and handling still require play-testing on the target machines.
+
+
+## V5.6 — visible speed assists
+
+Slipstreaming now builds a **speed target up to 30 km/h above the leading car**, within the existing 6–60 m aligned wake. The bonus builds at no more than 7.2 km/h per second and the car accelerates smoothly toward the target. This replaces the former drag-only benefit. Faint edge streaks remain, and each player's speedometer now shows the active assist's target speed.
+
+Split-screen race catch-up now targets **140% of the leading car's forward speed**, replacing the 7% torque multiplier. A 100 km/h leader therefore gives a full catch-up target of 140 km/h. The target multiplier builds over 1.6 seconds and eligibility follows ordered race progress, switching after an overtake. The larger of the draft/catch-up targets applies when both are active; they do not multiply together. Assisted targets have a 400 km/h ceiling to prevent repeated overtakes from multiplying speed indefinitely; normal engine acceleration is not capped by this ceiling.
+
+Both assists use bounded forward acceleration, with compensation for drag, so they can reach the target even when a small engine would otherwise run out of power. There is no velocity jump or forced slowdown. Releasing the accelerator, braking, handbraking, clutching, shifting, going airborne, scraping a wall or sliding strongly sideways stops added acceleration. Leaving the wake, resetting, overtaking or ending the race clears the relevant target. Momentum is retained naturally. Cameras, route fixes, 2JZ audio, BOV and backfire remain unchanged. V5.6 uses a new race-record rules key.
+
+Manual checks: hold the lead car at 100 km/h and follow on a highway, first in free driving and then in a race. Confirm the target readout builds toward 130 km/h in the wake and 140 km/h for the trailing racer, and compare against the actual speedometer. Brake, shift, leave the wake, swap positions and reset; check that acceleration assistance withdraws without a velocity snap. Native feel and frame rate still require play-testing on the target machines.
