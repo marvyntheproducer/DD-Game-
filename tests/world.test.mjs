@@ -927,3 +927,10 @@ test('V6.2 pro driver short-shifts wheelspin and physically reverses to rejoin w
  g.endRace();g.setSplit(false);g.setStarted(true);const saved={...g.P};g.selectEngine('JZ2Tour','factory');g.applyHandlingPreset('drift');Object.assign(g.P,{hp:600,torque:700,boost:20});g.configureCareerRoute(g.careerEvent('ren-run'));g.startRace({rival:true});g.race.state='run';const c=g.soloCareer.rival,p=g.race.players[1],at=g.gateAtDistance(g.race.route,80);g.placeCar(c,at.x,at.z,Math.atan2(-at.tz,at.tx));c.frozen=false;p.next=g.race.course.findIndex(q=>q.distance>=80);c.gear=1;c.rpm=g.P.redline*.9;c.vx=12;c.vwx=at.tx*12;c.vwz=at.tz*12;c.wR=80;c.shiftCooldown=0;c.shiftT=0;g.readSoloRival(.05);assert.equal(c.gear,2);
  g.placeCar(c,at.x,at.z,Math.atan2(-at.tz,at.tx));c.frozen=false;c.ai.stuck=2;c.ai.reverseCooldown=0;const version=c.teleportVersion,x=c.x,z=c.z;g.readSoloRival(.05);assert.equal(c.ai.mode,'rejoin');assert.equal(c.gear,-1);assert.ok(c.inp.thr>0);assert.equal(c.teleportVersion,version);assert.equal(c.x,x);assert.equal(c.z,z);assert.equal(c.ai.recoveries,0);g.endRace();Object.assign(g.P,saved);g.setStarted(false);
 });
+
+test('V6.2 pro blocker sensor selects nearby traffic ahead and rejects side-road or different-height objects',()=>{
+ const c={x:100,y:5,z:100},human=g.cars[0],savedHuman={x:human.x,y:human.y,z:human.z},savedVehicles=g.traffic.vehicles,savedColliders=g.meetFleet.colliders;Object.assign(human,{x:150,y:5,z:100});
+ const v={active:true,x:120,y:5,z:100,fx:-1,fz:0,speed:15};g.traffic.vehicles=[v];g.meetFleet.colliders=[];let b=g.soloRivalBlocker(c,1,0);assert.equal(b.traffic,true);assert.equal(b.vwx,-15);
+ v.y=10;assert.equal(g.soloRivalBlocker(c,1,0),human);v.y=5;v.z=110;assert.equal(g.soloRivalBlocker(c,1,0),human);v.z=100;v.x=90;assert.equal(g.soloRivalBlocker(c,1,0),human);
+ g.traffic.vehicles=savedVehicles;g.meetFleet.colliders=savedColliders;Object.assign(human,savedHuman);
+});

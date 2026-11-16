@@ -10445,6 +10445,11 @@ function spawnSoloRival(name='Ren'){if(split)return null;stopSoloRival();const c
  for(const name of ['interior','jdm','aero','fxFlame','heatFlames','lights'])if(c[name])c[name].visible=false;for(const m of c.detailWheels||[])m.visible=false;
  c.root.traverse(o=>{if(o.isMesh)o.castShadow=false;if(o.isLight)o.visible=false;});soloCareer.rival=c;soloCareer.racers=[car1,c];return c;}
 function stopSoloRival(){const c=soloCareer.rival;if(c){disposeVehicle(c);soloCareer.rival=null;}soloCareer.racers=null;}
+function soloRivalBlocker(c,tx,tz){let best=null,bestAhead=65;
+ const consider=(v,npc)=>{const ahead=(v.x-c.x)*tx+(v.z-c.z)*tz,side=Math.abs((v.x-c.x)*(-tz)+(v.z-c.z)*tx);if(ahead>0&&ahead<bestAhead&&side<4.2&&Math.abs(v.y-c.y)<2){best=v;bestAhead=ahead;}};
+ consider(car1,false);for(const v of traffic.vehicles)if(v.active)consider(v,true);for(const v of meetFleet.colliders||[])if(v.active&&(v.id===undefined||v.rendered))consider(v,true);
+ if(!best||best===car1)return car1;return {x:best.x,y:best.y,z:best.z,vwx:best.vwx??(best.fx||0)*(best.speed||0),vwz:best.vwz??(best.fz||0)*(best.speed||0),traffic:true};
+}
 function readSoloRival(dt){const c=soloCareer.rival;if(!c||!race.active)return;const ai=c.ai;ai.clock+=dt;if(ai.clock<1/30)return;const h=ai.clock;ai.clock=0;const p=race.players[1];if(!p||c.frozen||p.done||race.state!=='run'){c.inp.thr=0;c.inp.brk=1;c.inp.hb=false;return;}
  const RC=window.RIVAL_CORE,position=racePosition(c,p),speed=Math.hypot(c.vwx,c.vwz),circuit=race.loop&&race.cps.length>2,lap=Math.floor(p.next/race.course.length),look=clamp(4+speed*.32,4,16);let distance=clamp(position.progress-lap*race.length,0,race.length);
  if(ai.lap!==lap){ai.lap=lap;ai.turnDone={};ai.turn=null;ai.turnExit=null;}
@@ -10453,9 +10458,9 @@ function readSoloRival(dt){const c=soloCareer.rival;if(!c||!race.active)return;c
  if(ai.turn){ai.turn.clock+=h;const angle=Math.atan2(Math.sin(ai.turn.corner.yaw-c.yaw),Math.cos(ai.turn.corner.yaw-c.yaw));if(ai.turn.clock>.2&&(Math.abs(angle)<.5||ai.turn.clock>4)){ai.turnDone[ai.turn.corner.distance]=true;ai.turnExit={distance:ai.turn.corner.distance+24,next:p.next,clock:0};distance=Math.max(distance,ai.turnExit.distance);ai.turn=null;ai.offset=0;}}
 
  const aimDistance=distance+look,wrapped=circuit?aimDistance%race.length:Math.min(race.length,aimDistance),base=RC.sample(ai.line,wrapped),center=pointAtRoute(race.route,wrapped),nowCenter=pointAtRoute(race.route,distance);
- const rx=car1.x-c.x,rz=car1.z-c.z,ahead=rx*position.tx+rz*position.tz,across=rx*(-position.tz)+rz*position.tx,leadSpeed=Math.hypot(car1.vwx,car1.vwz),human=race.players[0],gap=human&&!human.done?routeProgress(car1,human)-position.progress:0;
- const lateral=(c.x-nowCenter.x)*(-position.tz)+(c.z-nowCenter.z)*position.tx,room=Math.max(0,(base.width||5)-1.7),aligned=Math.abs(car1.y-c.y)<2&&(leadSpeed<3||((car1.vwx*position.tx+car1.vwz*position.tz)/leadSpeed)>.75);
- const choice=RC.tactics({ahead,across,speed,leadSpeed,gap,room,aligned},ai,h);ai.mode=choice.mode;
+ const leadCar=soloRivalBlocker(c,position.tx,position.tz),rx=leadCar.x-c.x,rz=leadCar.z-c.z,ahead=rx*position.tx+rz*position.tz,across=rx*(-position.tz)+rz*position.tx,leadSpeed=Math.hypot(leadCar.vwx,leadCar.vwz),human=race.players[0],gap=human&&!human.done?routeProgress(car1,human)-position.progress:0;
+ const lateral=(c.x-nowCenter.x)*(-position.tz)+(c.z-nowCenter.z)*position.tx,room=Math.max(0,(base.width||5)-1.7),aligned=Math.abs(leadCar.y-c.y)<2&&(leadSpeed<3||((leadCar.vwx*position.tx+leadCar.vwz*position.tz)/leadSpeed)>.75);
+ const choice=RC.tactics({ahead,across,speed,leadSpeed,gap,room,aligned,obstacle:!!leadCar.traffic},ai,h);ai.mode=choice.mode;
  let desired=choice.mode==='tow'||choice.mode==='pass'||choice.nudge?clamp(lateral+choice.offset,-room,room):base.offset||0;
  if(choice.nudge)desired=clamp(lateral+across+Math.sign(choice.offset||1)*.45,-room,room);
  const pending=race.course[p.next%race.course.length];desired*=sstep(0,14,pending.distance-distance);

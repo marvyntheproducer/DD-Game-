@@ -44,7 +44,8 @@ function tactics(state,ai,dt){
  ai.commit=Math.max(0,(ai.commit||0)-dt);ai.nudgeCooldown=Math.max(0,(ai.nudgeCooldown||0)-dt);let mode='attack',offset=0;
  if(state.ahead>7&&state.ahead<60&&Math.abs(state.across)<4&&state.aligned){mode='tow';offset=clamp(state.across,-state.room,state.room);}
  const closing=state.speed-state.leadSpeed;
- if(state.ahead>0&&state.ahead<25&&Math.abs(state.across)<4&&state.aligned&&(closing>1||state.ahead<12)&&state.room>1.8){
+ const obstacle=state.obstacle&&state.ahead>0&&state.ahead<60&&Math.abs(state.across)<3.5&&state.room+Math.abs(state.across)>2;
+ if(obstacle||state.ahead>0&&state.ahead<25&&Math.abs(state.across)<4&&state.aligned&&(closing>1||state.ahead<12)&&state.room>1.8){
   if(ai.commit<=0){ai.passSide=state.across>=0?-1:1;ai.commit=1.5;}
   mode='pass';offset=clamp(state.across+ai.passSide*3.1,-state.room,state.room);
  }else if(ai.commit>0&&state.ahead> -6&&state.ahead<35){mode='pass';offset=clamp(state.across+ai.passSide*3.1,-state.room,state.room);}

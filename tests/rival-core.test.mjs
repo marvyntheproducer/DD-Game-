@@ -22,3 +22,8 @@ test('committed overtakes use available lane width while angled cars and barrier
  assert.equal(R.edgeRisk(3.2,5.5,0,1,0,'pass'),false);assert.equal(R.edgeRisk(3.2,5.5,0,1,0,'pressure'),false);assert.equal(R.edgeRisk(3.2,5.5,0,1,0,'attack'),true);
  assert.equal(R.edgeRisk(3.2,5.5,Math.PI/2,1,0,'pass'),true);assert.equal(R.edgeRisk(4.5,5.5,0,1,0,'pass'),true);assert.equal(R.edgeRisk(0,5.5,0,1,0,'pass',.1),true);
 });
+
+test('pro driver plans around oncoming and stopped traffic instead of waiting to collide',()=>{
+ let p=R.tactics({ahead:55,across:-1.3,speed:40,leadSpeed:20,gap:0,room:1.5,aligned:false,obstacle:true},{},.05);assert.equal(p.mode,'pass');assert.ok(p.offset>0);assert.equal(p.nudge,false);
+ p=R.tactics({ahead:35,across:0,speed:30,leadSpeed:0,gap:0,room:3,aligned:true,obstacle:true},{},.05);assert.equal(p.mode,'pass');assert.ok(Math.abs(p.offset)>2);
+});
