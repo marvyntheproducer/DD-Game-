@@ -1,4 +1,4 @@
-# Valley / After Hours — V6.1 solo guide
+# Valley / After Hours — V6.2 solo guide
 
 ## Start or resume
 
@@ -23,7 +23,7 @@ The home screen contains Career, Free Ride, Quick Race, Split Screen, Garage and
 |---|---|---|
 | Local Reputation · Ren | First Light | Complete the city time trial within the bronze target |
 | Local Reputation · Ren | Finding Your Angle | Finish the route with six seconds of controlled road drifting |
-| Local Reputation · Ren | Ren's First Run | Beat the competitive rival on a city sprint |
+| Local Reputation · Ren | Ren's First Run | Beat the pro rival on a city sprint |
 | Local Reputation · Ren | Valley Calling | Win one valley circuit lap |
 | After Hours · Aya | Salt in the Air | Complete the coastal time trial |
 | After Hours · Aya | Afterglow Slide | Finish the harbour/tunnel route with eight seconds of drifting |
@@ -40,7 +40,7 @@ After each chapter, **Garage rewards** offers a sponsor livery/wheel/spoiler pac
 
 ## Solo rivals and tuning
 
-Quick Race offers **Competitive Rival** or **Time Trial / Ghost**. Career events choose the appropriate mode automatically. Rival events use one opponent with your car and current power, gearing, mass and handling tune. Competitive pace comes from its driving decisions, not an artificial power advantage. It uses the available power with tyre-slip traction control, brakes later, carries a faster corner pace, uses gears, collides normally, attempts to pass and takes the same recovery penalty when stuck. Driving pace changes gently with the race gap (up to 2.5% more when chasing and 7% less when well ahead), while power, grip, position and checkpoint rules stay unchanged. Open tuning before starting; opening tuning during a race ends that run.
+Quick Race offers **Pro Rival** or **Time Trial / Ghost**. Career events choose the appropriate mode automatically. Rival events use one opponent with your car and current power, gearing, mass and handling tune. Competitive pace comes from its driving decisions, not an artificial power advantage. It uses the available power with tyre-slip traction control, brakes later, carries a faster corner pace, uses gears, collides normally, attempts to pass and takes the same recovery penalty when stuck. The rival builds its own corner line and adjusts its lateral path continuously for the player, road edges, drafting and committed overtakes. Its attack/chase pace is not reduced when leading. Pressure can cause normal physical nudges; a cooldown and closing-speed limit bound that behaviour. It can reverse and rejoin when blocked. Power, grip, position and checkpoint rules stay unchanged. Open tuning before starting; opening tuning during a race ends that run.
 
 Solo rivals and players can draft. The existing 40% catch-up assistance remains exclusive to split-screen races. No rival is created in split screen. Solo keeps only your camera, HUD and minimap. A rival is marked on the map, has no additional engine voice and uses lean visual effects.
 

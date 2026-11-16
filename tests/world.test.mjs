@@ -889,11 +889,11 @@ test('V6 ghosts match the route and tune, use one draw and reject recovery runs'
  const final=g.P.final;g.P.final+=.1;g.startRace();assert.equal(g.soloCareer.ghost,null);g.endRace();g.P.final=final;context.performance=perf;g.setStarted(false);
 });
 
-test('V6.1 competitive rival completes career, Quick Race, multi-lap and high-power drift routes through normal physics',()=>{
+test('V6.2 pro rival completes career, Quick Race, multi-lap and high-power drift routes through normal physics',()=>{
  g.endRace();g.setSplit(false);g.setStarted(true);const saved={...g.P};g.selectEngine('JZ2Tour','factory');g.applyHandlingPreset('street');g.P.mass=1250;const perf=context.performance;let now=0;context.performance={now:()=>now};
  function qualify(event,preset=false){if(preset)g.presetCourse(event.id);else g.configureCareerRoute(event);g.startRace({rival:true});now+=3001;g.updRace();g.placeCar(g.cars[0],-6800,6000,0);g.cars[0].frozen=true;const bot=g.soloCareer.rival;let maximumBoost=0;
   const seconds=Math.ceil(Math.max(720,g.careerPar()*(g.race.loop?g.race.laps:1)*1.6));for(let k=0;k<seconds*240&&!g.race.players[1].done;k++){now+=1000/240;g.stepPlayers(1/240,now);maximumBoost=Math.max(maximumBoost,bot.assistAx||0);if(k%4===0)g.updRace();if(bot.ai.recoveries>2)break;}
-  assert.equal(g.race.players[1].done,true,event.id+' · '+g.race.players[1].next+'/'+g.race.total+' · recoveries '+bot.ai.recoveries+' · budget '+seconds+'s');assert.ok(bot.ai.recoveries<=1,event.id+' recoveries');assert.equal(maximumBoost,0,event.id+' hidden power assistance');const before={'ren-run':108.1375,'aya-run':176.1542,'sora-run':169.5875};if(!preset&&g.P.hp<400&&before[event.id]){assert.ok(g.race.players[1].time<before[event.id]*.92,event.id+' pace improvement '+g.race.players[1].time);console.log('V6.1 pace',event.id,g.race.players[1].time.toFixed(2)+'s vs V6.0 '+before[event.id]+'s');}g.endRace();}
+  assert.equal(g.race.players[1].done,true,event.id+' · '+g.race.players[1].next+'/'+g.race.total+' · recoveries '+bot.ai.recoveries+' · budget '+seconds+'s');assert.ok(bot.ai.recoveries<=1,event.id+' recoveries');assert.equal(maximumBoost,0,event.id+' hidden power assistance');const before=g.P.hp<400?{'ren-run':85.6708,'aya-run':139.21,'sora-run':135.98}:{'ren-run':92.0042,'sora-run':135.3708};if(!preset&&before[event.id]){assert.ok(g.race.players[1].time<before[event.id]*.99,event.id+' pace improvement '+g.race.players[1].time);console.log('V6.2 pace',event.id,g.race.players[1].time.toFixed(2)+'s vs V6.1 '+before[event.id]+'s');}g.endRace();}
  for(const event of g.CC.events.filter(e=>e.rival))qualify(event);for(const id of ['highway','mountain','coast','tunnel'])qualify({id},true);
  g.applyHandlingPreset('drift');Object.assign(g.P,{hp:600,torque:700,boost:20});for(const id of ['ren-run','sora-run'])qualify(g.careerEvent(id));
  Object.assign(g.P,saved);context.performance=perf;g.setStarted(false);
@@ -916,9 +916,14 @@ test('V6.1 menu separates home, setup, garage and settings while keeping all dri
  g.showMenuPage('settings');assert.match(lobby.innerHTML,/GRAPHICS/);assert.doesNotMatch(lobby.innerHTML,/lobby-car1/);g.showMenuPage('home');assert.equal(lobby.style.display,'none');
 });
 
-test('V6.1 rival adjusts driving pace for a close contest without changing the matched tune or position',()=>{
- g.setStarted(true);g.setSplit(false);g.configureCareerRoute(g.careerEvent('ren-run'));g.startRace({rival:true});g.race.state='run';const bot=g.soloCareer.rival,signature=JSON.stringify(g.P);
- const at=(c,p,d)=>{const gate=g.gateAtDistance(g.race.route,d);g.placeCar(c,gate.x,gate.z,Math.atan2(-gate.tz,gate.tx));c.frozen=false;p.next=g.race.course.findIndex(q=>q.distance>=d);};
- at(g.cars[0],g.race.players[0],400);at(bot,g.race.players[1],200);const x=bot.x,z=bot.z;for(let i=0;i<120;i++)g.readSoloRival(.05);assert.ok(bot.ai.pace>1.02);assert.equal(bot.x,x);assert.equal(bot.z,z);
- at(g.cars[0],g.race.players[0],200);at(bot,g.race.players[1],400);bot.ai.stuck=0;bot.ai.lastProgress=0;for(let i=0;i<120;i++)g.readSoloRival(.05);assert.ok(bot.ai.pace>=.93&&bot.ai.pace<.94);assert.equal(JSON.stringify(g.P),signature);assert.equal(bot.tuneSignature,signature);g.endRace();g.setStarted(false);
+test('V6.2 rival owns a distinct grip-aware line and changes lateral plans around the player',()=>{
+ g.setStarted(true);g.setSplit(false);g.configureCareerRoute(g.careerEvent('ren-run'));g.startRace({rival:true});g.race.state='run';const bot=g.soloCareer.rival,signature=JSON.stringify(g.P);assert.ok(bot.ai.line.some((p,i)=>Math.hypot(p.x-g.race.route[i].x,p.z-g.race.route[i].z)>.2));
+ const at=(c,p,d)=>{const gate=g.gateAtDistance(g.race.route,d);g.placeCar(c,gate.x,gate.z,Math.atan2(-gate.tz,gate.tx));c.frozen=false;p.next=g.race.course.findIndex(q=>q.distance>=d);c.vwx=gate.tx*30;c.vwz=gate.tz*30;};
+ at(g.cars[0],g.race.players[0],355);at(bot,g.race.players[1],315);g.readSoloRival(.05);assert.ok(['tow','chase'].includes(bot.ai.mode));const first=bot.ai.offset;
+ at(g.cars[0],g.race.players[0],325);at(bot,g.race.players[1],315);g.readSoloRival(.05);assert.ok(['pass','pressure'].includes(bot.ai.mode));for(let i=0;i<10;i++)g.readSoloRival(.05);assert.notEqual(bot.ai.offset,first);assert.equal(JSON.stringify(g.P),signature);assert.equal(bot.tuneSignature,signature);assert.equal(bot.ai.pace,undefined);g.endRace();g.setStarted(false);
+});
+
+test('V6.2 pro driver short-shifts wheelspin and physically reverses to rejoin without teleporting',()=>{
+ g.endRace();g.setSplit(false);g.setStarted(true);const saved={...g.P};g.selectEngine('JZ2Tour','factory');g.applyHandlingPreset('drift');Object.assign(g.P,{hp:600,torque:700,boost:20});g.configureCareerRoute(g.careerEvent('ren-run'));g.startRace({rival:true});g.race.state='run';const c=g.soloCareer.rival,p=g.race.players[1],at=g.gateAtDistance(g.race.route,80);g.placeCar(c,at.x,at.z,Math.atan2(-at.tz,at.tx));c.frozen=false;p.next=g.race.course.findIndex(q=>q.distance>=80);c.gear=1;c.rpm=g.P.redline*.9;c.vx=12;c.vwx=at.tx*12;c.vwz=at.tz*12;c.wR=80;c.shiftCooldown=0;c.shiftT=0;g.readSoloRival(.05);assert.equal(c.gear,2);
+ g.placeCar(c,at.x,at.z,Math.atan2(-at.tz,at.tx));c.frozen=false;c.ai.stuck=2;c.ai.reverseCooldown=0;const version=c.teleportVersion,x=c.x,z=c.z;g.readSoloRival(.05);assert.equal(c.ai.mode,'rejoin');assert.equal(c.gear,-1);assert.ok(c.inp.thr>0);assert.equal(c.teleportVersion,version);assert.equal(c.x,x);assert.equal(c.z,z);assert.equal(c.ai.recoveries,0);g.endRace();Object.assign(g.P,saved);g.setStarted(false);
 });
