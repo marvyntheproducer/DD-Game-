@@ -27,3 +27,16 @@ test('pro driver plans around oncoming and stopped traffic instead of waiting to
  let p=R.tactics({ahead:55,across:-1.3,speed:40,leadSpeed:20,gap:0,room:1.5,aligned:false,obstacle:true},{},.05);assert.equal(p.mode,'pass');assert.ok(p.offset>0);assert.equal(p.nudge,false);
  p=R.tactics({ahead:35,across:0,speed:30,leadSpeed:0,gap:0,room:3,aligned:true,obstacle:true},{},.05);assert.equal(p.mode,'pass');assert.ok(Math.abs(p.offset)>2);
 });
+
+test('V6.3 corner preview starts farther ahead at speed and shortens for tight bends',()=>{
+ const line=[{x:0,z:0,distance:0,speed:111,curvature:0,width:6,offset:0,tx:1,tz:0},{x:1000,z:0,distance:1000,speed:111,curvature:0,width:6,offset:0,tx:1,tz:0}];assert.ok(R.preview(line,100,50).look>20);assert.ok(R.preview(line,100,10).look<R.preview(line,100,50).look);
+ const bend=line.map(p=>({...p,curvature:.1}));assert.ok(R.preview(bend,100,50).look<R.preview(line,100,50).look);assert.ok(R.preview(bend,100,0).look>=6);
+});
+
+test('V6.3 growing-spin countersteer matches front tyre flow and releases once yaw is recovering',()=>{
+ const vx=20,vy=12,r=-1.5,front=1.18,p=R.recoverSteer(.1,vx,vy,r,front);assert.ok(p.angle>Math.atan2(vy+front*r,vx));assert.equal(p.recovering,true);assert.ok(p.rate>3);
+ const mirrored=R.recoverSteer(-.1,vx,-vy,-r,front);assert.ok(Math.abs(p.angle+mirrored.angle)<1e-9);assert.equal(R.recoverSteer(.1,vx,vy,1.5,front).angle,.1);assert.equal(R.recoverSteer(.1,vx,0,0,front).recovering,false);
+});
+test('V6.3 pressure contact stops when the rival is already sliding hard',()=>{
+ const s={ahead:5,across:0,speed:30,leadSpeed:27,gap:20,room:3,aligned:true,stable:false};const p=R.tactics(s,{nudgeTime:.1},.05);assert.equal(p.nudge,false);assert.notEqual(p.mode,'pressure');assert.equal(R.tactics({...s,stable:true},{},.05).nudge,true);
+});

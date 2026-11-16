@@ -1,4 +1,4 @@
-# Drift Drive V6.2 — Pro Rival
+# Drift Drive V6.3 — Earlier Corners
 
 A Three.js / Web Audio driving game with free roam, local split-screen, engine
 swaps, drift tuning, and custom road races. Locations are fictional and inspired
@@ -522,3 +522,8 @@ The solo rival builds its own grip-aware corner line, separate from the optional
 Development qualification runs the actual physics offline. `npm run ai:qualify` drives every road both ways and every ordered junction approach/exit pair; it does not run during play. This is a physics-calibrated planner, not a neural model trained inside the app. The normal automated suite also drives all career rival routes, Quick Race presets, the two-lap mountain course and two 600 hp drift cases. Native competitive feel still needs hands-on play testing.
 
 V6.1.1's junction waypoint repair is included. Alt-click in the builder explicitly retains an intended near-junction turnaround.
+
+
+## V6.3 — Earlier corners and solo catch-up
+
+The rival previews farther ahead at speed, starts steering for corners earlier, uses slide-aware preview and front-tyre-flow countersteering against growing rotation, and suppresses new pressure nudges while already sliding hard. During spin recovery it briefly eases the front brake and throttle, allowing lateral tyre grip to catch the rotation before resuming acceleration. The 40% race catch-up now uses the actual race participant list in solo as well as split screen, so either trailing human or bot receives it and the role switches after an overtake. A 100 km/h leader yields a 140 km/h target after the existing 1.6-second ramp. The bot's extra acceleration is limited by its planned corner/stability speed; the controller does not brake against the straight-line boost. Human assists and the 400 km/h assist ceiling remain unchanged.

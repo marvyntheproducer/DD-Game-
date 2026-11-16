@@ -1,4 +1,4 @@
-# Valley / After Hours — V6.2 solo guide
+# Valley / After Hours — V6.3 solo guide
 
 ## Start or resume
 
@@ -40,9 +40,9 @@ After each chapter, **Garage rewards** offers a sponsor livery/wheel/spoiler pac
 
 ## Solo rivals and tuning
 
-Quick Race offers **Pro Rival** or **Time Trial / Ghost**. Career events choose the appropriate mode automatically. Rival events use one opponent with your car and current power, gearing, mass and handling tune. Competitive pace comes from its driving decisions, not an artificial power advantage. It uses the available power with tyre-slip traction control, brakes later, carries a faster corner pace, uses gears, collides normally, attempts to pass and takes the same recovery penalty when stuck. The rival builds its own corner line and adjusts its lateral path continuously for the player, road edges, drafting and committed overtakes. Its attack/chase pace is not reduced when leading. Pressure can cause normal physical nudges; a cooldown and closing-speed limit bound that behaviour. It can reverse and rejoin when blocked. Power, grip, position and checkpoint rules stay unchanged. Open tuning before starting; opening tuning during a race ends that run.
+Quick Race offers **Pro Rival** or **Time Trial / Ghost**. Career events choose the appropriate mode automatically. Rival events use one opponent with your car and current power, gearing, mass and handling tune. Normal pace comes from its driving decisions; trailing racers also share the catch-up assistance described below. It uses the available power with tyre-slip traction control, brakes later, carries a faster corner pace, uses gears, collides normally, attempts to pass and takes the same recovery penalty when stuck. The rival builds its own corner line and adjusts its lateral path continuously for the player, road edges, drafting and committed overtakes. Its attack/chase pace is not reduced when leading. Pressure can cause normal physical nudges; a cooldown and closing-speed limit bound that behaviour. It can reverse and rejoin when blocked. Power, grip, position and checkpoint rules stay unchanged. Open tuning before starting; opening tuning during a race ends that run.
 
-Solo rivals and players can draft. The existing 40% catch-up assistance remains exclusive to split-screen races. No rival is created in split screen. Solo keeps only your camera, HUD and minimap. A rival is marked on the map, has no additional engine voice and uses lean visual effects.
+Solo rivals and players can draft. The trailing racer receives a gradual 40% catch-up target in split-screen and solo rival races, including career. It switches after an overtake. For example, a 100 km/h leader gives a 140 km/h catch-up target after the 1.6-second ramp. Braking, handbraking, clutching, wall contact and leaving the ground pause the assistance. The bot also respects its planned corner and stability speed, so it brakes for bends rather than fighting the boost. No rival is created in split screen. Solo keeps only your camera, HUD and minimap. A rival is marked on the map, has no additional engine voice and uses lean visual effects.
 
 ## Personal-best ghosts
 
