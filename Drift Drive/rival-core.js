@@ -25,11 +25,10 @@ function buildLine(route,tune,valid=()=>true,loop=false){
  // driveable arc rather than asking the steering to follow a graph vertex.
  for(let pass=0;pass<6;pass++){const old=line.map(p=>({x:p.x,z:p.z}));for(let i=1;i<line.length-1;i++){if(Math.abs(raw[i])<.015)continue;const a=old[Math.max(0,i-4)],b=old[Math.min(line.length-1,i+4)],x=(a.x+b.x+old[i].x*2)/4,z=(a.z+b.z+old[i].z*2)/4;if(valid(x,z,route[i])){line[i].x=x;line[i].z=z;}}}
  for(let i=0;i<line.length;i++){const p=line[i],a=line[Math.max(0,i-1)],b=line[Math.min(line.length-1,i+1)],len=Math.hypot(b.x-a.x,b.z-a.z)||1;p.tx=(b.x-a.x)/len;p.tz=(b.z-a.z)/len;p.offset=(p.x-route[i].x)*(-route[i].tz)+(p.z-route[i].z)*route[i].tx;}
- // Local margins calibrated from offline barrier/overrun incidents on this map.
+ // Explicit near-reversing junctions use a committed low-speed turn.
  line.hairpins=[];for(let i=1;i<route.length-1;i++){const p=route[i],a=route[Math.max(0,i-5)],b=route[Math.min(route.length-1,i+5)],ax=p.x-a.x,az=p.z-a.z,bx=b.x-p.x,bz=b.z-p.z,angle=Math.atan2(-(ax*bz-az*bx),ax*bx+az*bz);if(Math.abs(angle)>2.2&&p.distance>25&&p.distance<route.at(-1).distance-25&&!line.hairpins.some(c=>Math.abs(c.distance-p.distance)<25))line.hairpins.push({distance:p.distance,x:p.x,z:p.z,yaw:Math.atan2(-bz,bx)});}
- const trained=[{x:-2020,z:880,r:110,speed:9.5},{x:-2382,z:1118,r:80,speed:12},{x:-2520,z:1178,r:110,speed:16},{x:5900,z:-2005,r:140,speed:7.5}];
  const grip=clamp(Math.min(tune.gripF,tune.gripR),.5,1.6),lateral=8.8*grip/1.2,brake=5.0*grip/1.2;
- for(let i=0;i<line.length;i++){const p=line[i],a=line[Math.max(0,i-4)],b=line[Math.min(line.length-1,i+4)],k=Math.abs(curvature(a,p,b));p.curvature=curvature(a,p,b);p.speed=Math.min(400/3.6,Math.sqrt(lateral/Math.max(k,.00001)));for(const margin of trained){const d=Math.hypot(p.x-margin.x,p.z-margin.z);if(d<margin.r)p.speed=Math.min(p.speed,margin.speed+(90-margin.speed)*smooth(margin.r*.35,margin.r,d));}}
+ for(let i=0;i<line.length;i++){const p=line[i],a=line[Math.max(0,i-4)],b=line[Math.min(line.length-1,i+4)],k=Math.abs(curvature(a,p,b));p.curvature=curvature(a,p,b);p.speed=Math.min(400/3.6,Math.sqrt(lateral/Math.max(k,.00001)));}
  // One distance-aware braking envelope, including the next lap's first corner.
  for(let pass=0;pass<(loop?2:1);pass++)for(let i=line.length-1;i>=0;i--){const p=line[i],q=line[(i+1)%line.length];if(i===line.length-1&&!loop)continue;const ds=i===line.length-1?2:Math.max(.1,q.distance-p.distance);p.speed=Math.min(p.speed,Math.sqrt(q.speed*q.speed+2*brake*ds));}
  return line;
@@ -37,6 +36,18 @@ function buildLine(route,tune,valid=()=>true,loop=false){
 function sample(line,d){let lo=0,hi=line.length-1;d=clamp(d,0,line[hi].distance);while(hi-lo>1){const m=(lo+hi)>>1;if(line[m].distance<d)lo=m;else hi=m;}const a=line[lo],b=line[hi],t=clamp((d-a.distance)/Math.max(.001,b.distance-a.distance),0,1);return {x:a.x+(b.x-a.x)*t,z:a.z+(b.z-a.z)*t,speed:a.speed+(b.speed-a.speed)*t,curvature:a.curvature+(b.curvature-a.curvature)*t,width:a.width||5,offset:a.offset+(b.offset-a.offset)*t,tx:a.tx,tz:a.tz};}
 function preview(line,distance,speed,slide=0){const plan=sample(line,distance),far=clamp(6+speed*.38,6,22)*(1-smooth(.12,.4,Math.abs(slide))*.25);let curve=Math.abs(plan.curvature);for(const t of [.25,.5,.75,1])curve=Math.max(curve,Math.abs(sample(line,Math.min(line.at(-1).distance,distance+far*t)).curvature));const geometry=Math.sqrt(4/Math.max(.00001,curve));return {plan,look:Math.max(6,Math.min(geometry,far*(1-smooth(.015,.09,curve)*.55)))};}
 
+// Invert the same tyre curve used by the vehicle: request yaw, not steering lock.
+function forceSteer(desiredYaw,vx,vy,r,muF,muR,mass,ax=0,slip=0){
+ const A=1.18,B=1.345,L=A+B,front=Math.max(600,mass*9.81*B/L-mass*ax*.48/L),rear=Math.max(600,mass*9.81*A/L+mass*ax*.48/L),den=Math.max(3,Math.abs(vx));
+ const sy=(vy-r*B)/den,sx=slip/den,s=Math.hypot(sx,sy),fy=s>1e-6?-muR*rear*Math.sin(1.35*Math.atan(16*s))*sy/s:0;
+ const demand=(B*fy+mass*1.52*(desiredYaw-r)*6)/A,capacity=Math.max(100,muF*front),use=clamp(demand/capacity,-.92,.92),angle=Math.tan(Math.asin(use)/1.35)/16;
+ return Math.atan2(vy+r*A,Math.max(3,vx))+angle;
+}
+// A slide may carry speed only while its angle is bounded and its exit progress
+// remains useful. Growing rotation, an edge or an opposing turn demands recovery.
+function controlledSlide(beta,growth,yaw,pathYaw,speed,curvature,lateral,room){
+ return speed>8&&Math.abs(curvature)>.004&&Math.abs(beta)>.12&&Math.abs(beta)<.48&&growth<.16&&yaw*pathYaw>0&&Math.abs(yaw-pathYaw)<.4&&Math.abs(lateral)<Math.max(.5,room-1);
+}
 function recoverSteer(requested,vx,vy,yawRate,front){const beta=vx>3?Math.atan2(vy,vx):0,weight=yawRate*beta<0?smooth(.12,.32,Math.abs(beta)):0,flow=Math.atan2(vy+front*yawRate,Math.max(3,vx)),counter=beta>=0?Math.max(requested,flow+.035):Math.min(requested,flow-.035);return {angle:requested+(counter-requested)*weight,rate:3+3*weight,recovering:weight>.2};}
 function recoveryBrake(vx,vy,yawRate,front,steer){if(Math.abs(Math.atan2(vy,Math.max(3,vx)))<.15)return 1;const vfy=vy+front*yawRate,along=vx*Math.cos(steer)+vfy*Math.sin(steer),side=(-vx*Math.sin(steer)+vfy*Math.cos(steer))/Math.max(3,Math.abs(along)),support=-side*Math.cos(steer)*Math.sign(vy);return clamp(.8*support/Math.max(.001,.13*Math.abs(Math.sin(steer))),.08,.8);}
 function edgeRisk(distance,width,yaw,tx,tz,mode,wall=0){
@@ -58,5 +69,5 @@ function tactics(state,ai,dt){
  if(mode==='attack'&&state.gap>25)mode='chase';
  return {mode,offset,nudge:ai.nudgeTime>0};
 }
-root.RIVAL_CORE={buildLine,sample,preview,recoverSteer,recoveryBrake,curvature,edgeRisk,tactics};
+root.RIVAL_CORE={buildLine,sample,preview,forceSteer,controlledSlide,recoverSteer,recoveryBrake,curvature,edgeRisk,tactics};
 })(typeof window==='object'?window:globalThis);

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Drift Drive V6.3 — After Hours</title>
+<title>Drift Drive V6.4 — After Hours</title>
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
 #hud{position:fixed;right:28px;bottom:24px;color:#fff;text-align:right;text-shadow:0 2px 6px #000a;pointer-events:auto}
@@ -58,7 +58,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:syste
 <style>#bigmap{z-index:40!important;top:40%!important}#bpanel{z-index:41}#maptoolbar{z-index:42;max-height:27vh!important} @media(max-height:760px){#overlay{justify-content:flex-start!important;padding:24px 40px!important}#overlay .arcade-logo{font-size:48px!important}#overlay .arcade-mode{padding:9px 16px!important}} #career-map-info{flex-basis:100%;background:#101a17ed;border-top:1px solid #89985c;padding:10px 14px;font:12px/1.4 system-ui;color:#e6e9d8;text-align:left}#career-map-info label{display:inline-flex;gap:8px;margin:8px 16px}#career-map-info p{margin:5px 0}.map-legend{color:#bbc3a2;font:10px monospace;margin-left:12px}#maptoolbar{flex-wrap:wrap;max-height:35vh;overflow:auto}#maptoolbar select{max-width:60vw}</style></head>
 <body>
 <div id="overlay" role="dialog" aria-label="Drift Drive main menu">
-<div class="arcade-kicker">JDM NIGHTS / AFTER HOURS / V6.3</div><div class="arcade-logo">DRIFT <span>DRIVE</span></div><div class="arcade-tag">山道 — THE ROAD IS YOURS</div>
+<div class="arcade-kicker">JDM NIGHTS / AFTER HOURS / V6.4</div><div class="arcade-logo">DRIFT <span>DRIVE</span></div><div class="arcade-tag">山道 — THE ROAD IS YOURS</div>
 <div id="ovtext">WAKING THE VALLEY</div><small id="ovsub">Preparing your drive</small>
 <section id="load-panel" aria-label="Loading the game"><div class="load-road" aria-hidden="true"><i></i></div><div id="load-track" role="progressbar" aria-label="World preparation" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="load-fill"></div></div><div class="load-meta"><span id="load-stage">WORLD PREPARATION</span><span id="load-percent">0%</span></div><p id="load-tip">Career: find a gold event on the map, drive to its start, stop and press F.</p><button id="load-retry" hidden>RETRY STARTUP</button></section>
 <div id="menu-controls"><div class="mode-grid">
@@ -10464,15 +10464,15 @@ function readSoloRival(dt){const c=soloCareer.rival;if(!c||!race.active)return;c
  const choice=RC.tactics({ahead,across,speed,leadSpeed,gap,room,aligned,obstacle:!!leadCar.traffic,stable:Math.abs(Math.atan2(c.vy,Math.max(3,c.vx)))<.3&&Math.abs(c.r)*speed<8.5},ai,h);ai.mode=choice.mode;
  let desired=choice.mode==='tow'||choice.mode==='pass'||choice.nudge?clamp(lateral+choice.offset,-room,room):base.offset||0;
  if(choice.nudge)desired=clamp(lateral+across+Math.sign(choice.offset||1)*.45,-room,room);
- const pending=race.course[p.next%race.course.length];desired*=sstep(0,14,pending.distance-distance);
+ const pending=race.course[p.next%race.course.length];// Checkpoints span the road; keep the continuous racing line through them.
  ai.offset=(ai.offset??lateral)+clamp(desired-(ai.offset??lateral),-h*3,h*3);
  const tx=base.tx||position.tx,tz=base.tz||position.tz;let aim={x:base.x-tz*(ai.offset-(base.offset||0)),z:base.z+tx*(ai.offset-(base.offset||0))};
  const roadNow=nearestRoad(c.x,c.z),edgeRisk=!!roadNow&&RC.edgeRisk(roadNow.d,roadNow.w,c.yaw,roadNow.tx,roadNow.tz,choice.mode,c.wallContact);ai.edgeRisk=edgeRisk;if(edgeRisk)aim={x:center.x,z:center.z};
  if(!pavedSurface(aim.x,aim.z))aim={x:base.x,z:base.z};
- if(pending.distance-distance<clamp(4+speed*.32,4,16)+6)aim={x:pending.x+pending.tx*3,z:pending.z+pending.tz*3};
+ if(pending.distance-distance<clamp(4+speed*.32,4,16)+6&&(Math.abs(RC.sample(ai.line,pending.distance).curvature)>.04||(ai.line.hairpins||[]).some(t=>Math.abs(t.distance-pending.distance)<30)))aim={x:pending.x+pending.tx*3,z:pending.z+pending.tz*3};
  if(p.next%race.course.length===race.course.length-1&&aimDistance>race.length){const finish=race.course.at(-1);aim={x:finish.x+finish.tx*10,z:finish.z+finish.tz*10};}
  const dx=aim.x-c.x,dz=aim.z-c.z,heading=Math.atan2(-dz,dx),error=Math.atan2(Math.sin(heading-c.yaw),Math.cos(heading-c.yaw));
- const beta=c.vx>3?Math.atan2(c.vy,c.vx):0,pursuit=2*Math.sin(error)/Math.max(2,Math.hypot(dx,dz)),desiredYaw=speed*pursuit;const tracking=Math.atan(L*pursuit)+clamp(beta*.65*sstep(.2,.5,Math.abs(beta)),-.32,.32)+clamp((desiredYaw-c.r)*.08,-.15,.15),turnBlend=sstep(1.8,2.6,Math.abs(error))*(1-sstep(5,12,speed)),recovery=RC.recoverSteer(tracking*(1-turnBlend)+(error*1.1-c.r*.15)*turnBlend,c.vx,c.vy,c.r,A),steering=clamp(recovery.angle,-P.steer*Math.PI/180,P.steer*Math.PI/180);const steerRate=recovery.rate;c.steer+=clamp(steering-c.steer,-h*steerRate,h*steerRate);c.rawSteer=0;
+ const pursuit=2*Math.sin(error)/Math.max(2,Math.hypot(dx,dz)),desiredYaw=speed*pursuit;const tracking=RC.forceSteer(desiredYaw,c.vx,c.vy,c.r,c.muF,c.muR,P.mass,c.axF,c.wR*R-c.vx),turnBlend=sstep(1.8,2.6,Math.abs(error))*(1-sstep(5,12,speed)),recovery=RC.recoverSteer(tracking*(1-turnBlend)+(error*1.1-c.r*.15)*turnBlend,c.vx,c.vy,c.r,A),steering=clamp(recovery.angle,-P.steer*Math.PI/180,P.steer*Math.PI/180);const steerRate=recovery.rate;c.steer+=clamp(steering-c.steer,-h*steerRate,h*steerRate);c.rawSteer=0;
  let target=plan.speed;
  // Braking is already distance-aware in the cached profile: do not brake twice.
  // The shared 40% catch-up supplies acceleration; retain this corner braking envelope.
@@ -10484,7 +10484,11 @@ function readSoloRival(dt){const c=soloCareer.rival;if(!c||!race.active)return;c
  ai.traction=clamp((ai.traction??1)+(slip>.18?-3.5:slip<.08?1.3:0)*h,P.hp>400?.16:.08,1);
  const traction=ai.traction*(P.hp>400?1-sstep(.7,2,slip)*.5:1-sstep(.35,.7,slip)*.75),stability=1-sstep(.16,.6,angle)*.75;
  c.inp.thr=Math.max(clamp(difference*.36+.36,0,1)*traction*stability,speed<4&&difference>1&&c.gear===1?.26:0);c.inp.brk=difference<-.8?clamp(-difference*.20,0,1):0;c.inp.clutch=false;c.inp.hb=false;
- ai.stabilize=Math.max(0,(ai.stabilize||0)-h);if(recovery.recovering)ai.stabilize=.35;
+ const beta=Math.atan2(c.vy,Math.max(3,c.vx)),growth=(Math.abs(beta)-(ai.slideAngle??Math.abs(beta)))/h;ai.slideAngle=Math.abs(beta);
+ const flowing=RC.controlledSlide(beta,growth,c.r,-speed*plan.curvature,speed,plan.curvature,lateral,room)&&(c.vwx*position.tx+c.vwz*position.tz)/Math.max(1,speed)>.85&&!edgeRisk&&!choice.nudge;
+ ai.controlledSlide=flowing;
+ ai.stabilize=Math.max(0,(ai.stabilize||0)-h);if(recovery.recovering&&!flowing)ai.stabilize=.35;
+ if(flowing){ai.stabilize=0;ai.mode='corner-slide';}
  if(ai.stabilize>0&&!ai.turn){c.inp.brk=Math.min(c.inp.brk,RC.recoveryBrake(c.vx,c.vy,c.r,A,c.steer));c.inp.thr=Math.min(c.inp.thr,.22);ai.assistLimit=0;ai.mode='stabilize';}
  ai.reverseCooldown=Math.max(0,(ai.reverseCooldown||0)-h);ai.reverse=Math.max(0,(ai.reverse||0)-h);
  if(!ai.turn&&ai.stuck>1.2&&speed<1.2&&ai.reverseCooldown<=0){ai.reverse=1.05;ai.rejoins=(ai.rejoins||0)+1;ai.reverseCooldown=4.5;c.gear=-1;c.shiftT=.14;c.driveBlend=0;c.cutT=0;}
