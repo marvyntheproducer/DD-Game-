@@ -1,4 +1,4 @@
-# Drift Drive V5.7 — JDM Nights
+# Drift Drive V6.1 — After Hours
 
 A Three.js / Web Audio driving game with free roam, local split-screen, engine
 swaps, drift tuning, and custom road races. Locations are fictional and inspired
@@ -6,8 +6,8 @@ by Japanese landscapes.
 
 ## Current game
 
-Choose **Solo**, **Split Screen**, or **Quick Race** before entering the world,
-then choose your cars and tune them. Press **1/2/3** to select a mode and
+Choose **Solo Career**, **Solo**, **Split Screen**, or **Quick Race** before entering the world,
+then choose your cars and tune them. Press **4** for Career, **1/2/3** to select other modes and
 **Enter** to launch; the mode cards also work with a mouse.
 
 The garage keeps four JDM car bodies: Nissan Silvia S14, Skyline GT-R R34,
@@ -483,3 +483,28 @@ Fixed two causes of intermittent catch-up: smoothed brake input used to remain s
 Drafting can cross connected road edges at a junction when the wake stays over pavement. Non-connected roads and paths through scenery remain rejected. The readout identifies the race leader and shows temporary blockers such as BRAKING, SHIFTING, CLUTCH or ACCELERATE instead of silently disappearing. Genuine braking, handbrake/clutch input, shifts, wall contact, water and airborne motion still pause acceleration. Tests cover both player slots, swapped positions, long drift angles, brake release through real input smoothing, bends, connected road seams, lap progress, HUD ownership and actual vehicle speed. Cameras, checkpoint rules and audio remain unchanged; race records use V5.7 rules.
 
 Manual checks: race with both keyboard control sets or two controllers, swap the leader several times, brake and release on each player, then repeat while drifting and approaching a junction. Verify both players get the same assistance when behind, the readout explains genuine pauses, and the car keeps its slide angle while receiving acceleration. Confirm the assists return after release, recovery and overtakes, and compare native frame rate on the target machines.
+
+
+## V6.0 — Valley / After Hours
+
+The complete solo career adds twelve sequential events across three chapters: Local Reputation, After Hours and Highland Invitation. Choose **Solo Career** (or press **4** in the menu), drive to the marked garage/meet, stop and press **F** for the career board. Set an event destination, follow the road navigation and press **F** at its start. The board includes route medals, rematches, sponsor packages, discovered-hub travel and race options. Progress saves after completed events; failed or aborted objectives award nothing. Replays improve medals and times without reputation farming.
+
+Six opponent events use one medium rival with the player's car and exact current physics tune. Human player slots, cameras, input, HUDs and minimaps remain separate from AI participants. The rival brakes and shifts through ordinary car physics at the same simulation timestep, plans inputs at 20 Hz, adapts speed/throttle to the build, and uses the same +5 s recovery rule if stuck. It has no engine voice, smoke, active lights, detailed interior or real-time shadows. Solo races allow drafting between the player and rival; the 40% race catch-up remains split-only. Quick Race offers Medium Rival or Time Trial / Ghost. Opening tuning ends an active race, keeping tune snapshots and records consistent.
+
+Kurohana opens the north-east of the existing world with nine connected road edges, a caldera lake, an open ridge loop, a tighter descent, a small hot-spring village, a garage hub and an overlook. The 196-tile terrain footprint is unchanged. Sparse rocks/pines are instanced, village pieces are batched and the district scenery is hidden when distant. The parked-car pool remains capped at nine. A **Laptop** graphics preset is available directly in the main menu and career options; it uses a 1.1-million-pixel budget, no real-time shadows and reduced detail while keeping physics identical. Four-thread devices default to this preset; Auto remains available.
+
+Earn three persistent sponsor packages with body stripes, banner text, wheel finish and spoiler presets; chapter trophies appear at Valley Works. Existing free-roam cosmetics stay available. Each route has permanent bronze/silver/gold mastery and personal bests. Time-trial ghosts use a single merged draw, no physics/audio/lights, and bounded five-Hz recordings: the latest four matching best runs, up to ten minutes each. Route, car, engine and handling tune must match; recovery runs are not saved. Malformed saves and ghosts are rejected, and storage failures are surfaced in the career board.
+
+Validation covers sequential completion of all twelve events, failed/aborted objectives, saved reward restoration, destination navigation, ghost ownership/invalidation, one-human/two-racer separation, split-screen isolation and laptop graphics settings. Physics qualification drives the rival through all six opponent routes and all four Quick Race presets (including the two-lap mountain marathon) with a street setup, plus two city/highland routes with a 600 hp drift setup. Existing V4 camera, split-screen assist, checkpoint, audio and offline desktop checks remain. Native frame rate and subjective handling still need a hands-on check on the target Mac/Windows hardware; the career options show a recent frame-rate estimate.
+
+See [CAREER.md](CAREER.md) for the player guide and hardware play-test checklist.
+
+
+## V6.1 — Competitive nights
+
+- Faster matched-tune rival: removes the 144 km/h planning cap and fixed horsepower-based throttle restriction, uses tyre-slip traction control and a higher corner-speed envelope, and gently adapts driving pace to the race gap.
+- All twelve career starts on solo maps with numbered ready/complete/locked diamonds, click/list selection, GPS and stop/press-F instructions.
+- A simpler black/olive/yellow street-racing home menu, separate setup/garage/settings screens and folded appearance controls.
+- Actual-stage loading progress, a lightweight car graphic, a career tip, reduced-motion support and a CSP-compatible retry button.
+
+See CAREER.md for controls and target-machine play tests. Existing career saves carry forward.

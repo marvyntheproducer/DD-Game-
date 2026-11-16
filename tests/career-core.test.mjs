@@ -1,0 +1,30 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
+const context={window:{}};vm.createContext(context);vm.runInContext(fs.readFileSync(new URL('../Drift Drive/career-core.js',import.meta.url),'utf8'),context);const C=context.window.CAREER_CORE;
+test('career has three sequential chapters and twelve distinct balanced event definitions',()=>{assert.equal(C.events.length,12);assert.equal(C.chapters.length,3);assert.equal(new Set(C.events.map(e=>e.id)).size,12);for(let i=0;i<3;i++)assert.equal(C.events.filter(e=>e.chapter===i).length,4);for(const e of C.events){assert.ok(e.nodes.length>=3||e.type==='time');assert.equal(e.rival,['duel','circuit'].includes(e.type));}});
+test('all twelve events can be completed, replayed and restored without reputation farming',()=>{let p=C.normalize({});for(const [i,e] of C.events.entries()){assert.equal(C.unlocked(p,e.id),true);if(i<11)assert.equal(C.unlocked(p,C.events[i+1].id),false);assert.equal(C.award(p,e.id,{success:true,time:100,medal:2}),true);assert.equal(Object.keys(p.results).length,i+1);}assert.equal(C.chapterComplete(p,2),true);const rep=C.reputation(p);assert.equal(C.award(p,C.events[0].id,{success:true,time:110,medal:1}),true);assert.equal(C.reputation(p),rep);assert.equal(p.results[C.events[0].id].time,100);p=C.normalize(JSON.parse(JSON.stringify(p)));assert.equal(Object.keys(p.results).length,12);assert.equal(C.reputation(p),rep);});
+test('failed, locked and malformed completions cannot unlock rewards',()=>{const p=C.normalize(null);assert.equal(C.award(p,C.events[11].id,{success:true,time:10,medal:3}),false);assert.equal(C.award(p,C.events[0].id,{success:false,time:10,medal:3}),false);assert.equal(C.award(p,C.events[0].id,{success:true,time:Infinity,medal:3}),false);assert.equal(C.chapterComplete(p,0),false);const bad=C.normalize({results:{[C.events[11].id]:{complete:true,time:10,medal:3},[C.events[0].id]:{complete:true,time:-1,medal:8}}});assert.equal(Object.keys(bad.results).length,0);});
+test('medals require the drift objective and reward speed',()=>{assert.equal(C.medal(70,100,10,6),3);assert.equal(C.medal(90,100,7,6),2);assert.equal(C.medal(120,100,7,6),1);assert.equal(C.medal(50,100,4,6),0);});
+test('ghosts validate route identity, finite values, increasing time and bounded storage',()=>{const record={key:'route-1',samples:[[0,1,2,3,3.1],[1,2,3,4,-3.1]]};assert.equal(C.ghostValid(record,'route-1'),true);assert.equal(C.ghostValid(record,'other-route'),false);for(const samples of [[[0,1,2,3,0],[0,1,2,3,0]],[[-.5,1,2,3,0],[1,2,3,4,0]],[[0,1,2,3,0],[1,Infinity,3,4,0]],Array.from({length:6002},(_,i)=>[i,1,2,3,0])])assert.equal(C.ghostValid({key:'route-1',samples},'route-1'),false);const p=C.ghostPose(record.samples,.5);assert.ok(Math.abs(Math.abs(p.yaw)-Math.PI)<.05);assert.equal(p.x,1.5);assert.equal(C.ghostPose(record.samples,2),null);});
+
+
+test('all configured race entry points honor the solo opponent and exclude AI in split screen',async()=>{
+ const {loadGame}=await import('./game-harness.mjs');const {game:g,context:c}=loadGame();vm.runInContext('startRace=options=>options;split=false;',c);
+ g.soloCareer.options.opponent='rival';assert.equal(g.startConfiguredRace().rival,true);g.soloCareer.options.opponent='ghost';assert.equal(g.startConfiguredRace().rival,false);
+ g.soloCareer.options.opponent='rival';vm.runInContext('split=true',c);assert.equal(g.startConfiguredRace().rival,false);
+ const html=fs.readFileSync(new URL('../Drift Drive/index.html',import.meta.url),'utf8');assert.match(html,/else startConfiguredRace\(\);return;/);assert.match(html,/return quick\?startConfiguredRace\(\):true/);
+});
+
+
+test('career navigation distinguishes forward, left, right and return directions',()=>{assert.equal(C.navigationArrow(0),'↑');assert.equal(C.navigationArrow(Math.PI/2),'↱');assert.equal(C.navigationArrow(-Math.PI/2),'↰');assert.equal(C.navigationArrow(Math.PI),'↶');});
+
+test('loading progress follows real stage work and startup failures expose a working retry',()=>{
+ const html=fs.readFileSync(new URL('../Drift Drive/index.html',import.meta.url),'utf8'),script=html.match(/<script>([\s\S]*?)<\/script>/)[1],nodes=new Map();let reloaded=false;
+ const get=id=>{if(!nodes.has(id))nodes.set(id,{style:{},dataset:{},attributes:{},setAttribute(k,v){this.attributes[k]=v;},addEventListener(k,fn){this[k]=fn;}});return nodes.get(id);};const c={window:{addEventListener(){}},document:{getElementById:get},console:{error(){}},location:{reload(){reloaded=true;}}};vm.createContext(c);vm.runInContext(script,c);
+ c.window.setStartupProgress(1,6,50);assert.equal(get('load-track').attributes['aria-valuenow'],'25');assert.equal(get('load-fill').style.width,'25%');c.window.setStartupProgress(6,6);assert.equal(get('load-percent').textContent,'100%');
+ c.window.reportStartupError(new Error('test'));assert.equal(get('load-retry').hidden,false);assert.equal(get('load-panel').dataset.failed,'true');get('load-retry').click();assert.equal(reloaded,true);assert.doesNotMatch(html,/<button[^>]+onclick=/);
+});
+
+
+test('career starts remain numbered and separated on a short desktop window map',async()=>{
+ const {loadGame}=await import('./game-harness.mjs');const {game:g}=loadGame(),markers=g.careerMapMarkers(372,(x,z)=>[x,z]),mini=g.careerMapMarkers(200,(x,z)=>[x,z]);assert.equal(markers[2].x-markers[0].x,23);assert.equal(mini[2].x-mini[0].x,12);
+});
