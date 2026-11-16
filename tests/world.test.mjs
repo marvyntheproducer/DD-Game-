@@ -679,7 +679,7 @@ test('split-screen slipstream benefits only an aligned following car on the same
  g.setSplit(true);const [a,b]=g.cars,ar=g.arrays;const edge=g.EDGES.find(e=>e.type==='highway'),i=edge.s+Math.floor(edge.n/2),tx=ar.TXa[i],tz=ar.TZa[i],yaw=Math.atan2(-tz,tx);
  const reset=()=>{g.placeCar(a,ar.RX[i]-tx*15,ar.RZ[i]-tz*15,yaw);g.placeCar(b,ar.RX[i],ar.RZ[i],yaw);for(const c of [a,b]){c.y=ar.RH[i]+.4;c.contact=1;c.vwx=tx*30;c.vwz=tz*30;c.frozen=false;c.wallContact=0;c.draft=0;}};
  reset();for(let k=0;k<480;k++)g.updateSlipstream(1/240);assert.ok(a.draft>.04&&a.draft<=.30);assert.equal(b.draft,0);
- reset();b.yaw+=Math.PI;for(let k=0;k<240;k++)g.updateSlipstream(1/240);assert.equal(a.draft,0);
+ reset();b.vwx*=-1;b.vwz*=-1;for(let k=0;k<240;k++)g.updateSlipstream(1/240);assert.equal(a.draft,0);
  reset();a.x+=-tz*8;a.z+=tx*8;g.updateSlipstream(1);assert.equal(a.draft,0);
  reset();a.wallContact=1;g.updateSlipstream(.01);assert.equal(a.draft,0);
  g.setSplit(false);a.draft=.1;g.updateSlipstream(.01);assert.equal(a.draft,0);
@@ -754,10 +754,10 @@ test('speed assists produce the requested road speeds, respect brakes and do not
  const run=hz=>{let speed=100/3.6;for(let k=0;k<hz*8;k++){const base=-1.5,extra=g.speedAssistAcceleration(c,speed,base,1/hz);assert.ok(extra>=0&&extra<=8);speed+=(base+extra)/hz;}return speed*3.6;};
  assert.ok(Math.abs(run(240)-130)<.1);assert.ok(Math.abs(run(60)-run(240))<.03);
  c.raceEligible=true;c.raceTargetSpeed=140/3.6;assert.equal(g.speedAssistTarget(c),140/3.6);assert.ok(Math.abs(run(240)-140)<.1);
- assert.match(g.speedAssistLabel(c),/CATCH-UP.*140/);c.inp.brk=1;assert.equal(g.speedAssistAcceleration(c,25,-3,1/240),0);assert.equal(g.speedAssistLabel(c),'');c.inp.brk=0;
+ assert.match(g.speedAssistLabel(c),/CATCH-UP.*140/);c.inp.brk=1;assert.equal(g.speedAssistAcceleration(c,25,-3,1/240),0);assert.match(g.speedAssistLabel(c),/BRAKING/);c.inp.brk=0;
  c.inp.hb=true;assert.equal(g.speedAssistAcceleration(c,25,-3,1/240),0);c.inp.hb=false;c.contact=0;assert.equal(g.speedAssistAcceleration(c,25,-3,1/240),0);c.contact=1;
  c.wallContact=.1;assert.equal(g.speedAssistAcceleration(c,25,-3,1/240),0);c.wallContact=0;
- assert.equal(g.speedAssistAcceleration(c,25,-3,1/240,12),0);assert.equal(g.speedAssistAcceleration(c,50,-3,1/240),0);
+ assert.ok(g.speedAssistAcceleration(c,25,-3,1/240,12)>0);assert.equal(g.speedAssistAcceleration(c,50,-3,1/240),0);
  c.draftTargetSpeed=200;c.raceTargetSpeed=200;assert.equal(g.speedAssistTarget(c),g.ASSIST_SPEED_CAP);
  g.clearSpeedAssists(c);assert.equal(g.speedAssistTarget(c),0);g.endRace();g.setSplit(false);g.setStarted(false);
 });
@@ -767,8 +767,77 @@ test('speed assists produce the requested road speeds, respect brakes and do not
 test('actual vehicle physics reaches forty-percent catch-up speed with an underpowered engine',()=>{
  g.endRace();g.setSplit(true);g.setStarted(true);g.race.active=true;g.race.state='run';const c=g.cars[0],ar=g.arrays,e=g.EDGES.find(e=>e.type==='highway'),i=e.s+Math.floor(e.n/2),tx=ar.TXa[i],tz=ar.TZa[i];
  const previous={hp:g.P.hp,torque:g.P.torque,boost:g.P.boost};g.P.hp=100;g.P.torque=100;g.P.boost=0;
- const run=assist=>{g.placeCar(c,ar.RX[i],ar.RZ[i],Math.atan2(-tz,tx));g.prePhys(c);c.vwx=tx*100/3.6;c.vwz=tz*100/3.6;c.wR=(100/3.6)/.32;c.gear=3;c.inp={thr:1,brk:0,hb:false,clutch:false};
+ const run=(c,assist)=>{g.placeCar(c,ar.RX[i],ar.RZ[i],Math.atan2(-tz,tx));g.prePhys(c);c.vwx=tx*100/3.6;c.vwz=tz*100/3.6;c.wR=(100/3.6)/.32;c.gear=3;c.inp={thr:1,brk:0,hb:false,clutch:false};
   for(let k=0;k<240*7;k++){c.raceEligible=assist;c.raceTargetSpeed=140/3.6;g.step(c,1/240);}return Math.hypot(c.vwx,c.vwz)*3.6;};
- const unassisted=run(false),assisted=run(true);assert.ok(assisted>137,'actual road speed '+assisted);assert.ok(assisted>unassisted+20,assisted+' vs '+unassisted);
+ const assistedSpeeds=[];for(const player of g.cars){const unassisted=run(player,false),assisted=run(player,true);assert.ok(assisted>137,'P'+(player.playerSlot+1)+' actual road speed '+assisted);assert.ok(assisted>unassisted+20,assisted+' vs '+unassisted);assistedSpeeds.push(assisted);}assert.ok(Math.abs(assistedSpeeds[0]-assistedSpeeds[1])<.01);
  Object.assign(g.P,previous);g.endRace();g.setSplit(false);g.setStarted(false);
+});
+
+
+test('both players recover catch-up after smoothed brake release while drifting toward a bend',()=>{
+ g.endRace();g.setSplit(true);g.setStarted(true);
+ Object.assign(g.race,{active:true,state:'run',loop:false,length:200,cps:[{x:0,z:0},{x:100,z:100}],route:[{x:0,z:0,distance:0},{x:100,z:0,distance:100},{x:100,z:100,distance:200}],course:[{x:100,z:100,tx:0,tz:1,distance:200,width:6}]});
+ for(const trailingSlot of [0,1]){
+  g.race.players=g.cars.map(()=>({next:0,done:false}));
+  for(const [slot,c] of g.cars.entries()){g.clearSpeedAssists(c);Object.assign(c,{x:slot===trailingSlot?20:65,z:0,y:0,yaw:(slot?-.9:1.1),vwx:20,vwz:0,vx:10,vy:17,contact:1,frozen:false,wallContact:0,inWater:false,gear:2,shiftT:0,shiftCooldown:100,rpm:3000,inp:{thr:1,brk:1,hb:false,clutch:false}});}
+  g.keys.KeyW=true;g.keys.ArrowUp=true;
+  for(let k=0;k<180;k++){g.cars.forEach((c,i)=>g.readInput(c,1/60,i));g.updateRaceBoost(1/60);}
+  const c=g.cars[trailingSlot],leader=g.cars[1-trailingSlot];assert.ok(c.inp.brk>0&&c.inp.brk<.001,'brake is still mathematically nonzero');
+  assert.equal(c.raceEligible,true);assert.equal(c.raceBoost,.4);assert.equal(c.raceTargetSpeed,28);assert.equal(leader.raceEligible,false);
+  assert.ok(g.speedAssistAcceleration(c,20,-2,1/240,17)>0);assert.match(g.speedAssistLabel(c),/CATCH-UP/);assert.equal(g.speedAssistLabel(leader),'RACE LEADER');
+  c.inp.brk=.3;g.updateRaceBoost(1/240);assert.equal(c.raceEligible,false);assert.equal(g.speedAssistAcceleration(c,20,-2,1/240,17),0);assert.match(g.speedAssistLabel(c),/BRAKING/);
+  c.inp.brk=.00001;g.updateRaceBoost(1/240);assert.equal(c.raceEligible,true);
+ }
+ const atCorner=g.cars[1],ahead=g.cars[0];Object.assign(atCorner,{x:100,z:0,vwx:0,vwz:20});Object.assign(ahead,{x:100,z:50,vwx:0,vwz:20});
+ const local=g.racePosition(atCorner,g.race.players[1]);assert.equal(local.tx,0);assert.equal(local.tz,1);g.updateRaceBoost(2);assert.equal(atCorner.raceEligible,true);
+ delete g.keys.KeyW;delete g.keys.ArrowUp;g.endRace();g.setSplit(false);g.setStarted(false);
+});
+
+test('both slots keep drafting through drift angles and connected highway junctions',()=>{
+ g.endRace();g.setSplit(true);g.setStarted(true);const ar=g.arrays;
+ const incoming=g.EDGES.find(e=>e.type==='highway'&&g.EDGES.some(f=>f!==e&&f.type==='highway'&&f.a===e.b));
+ const outgoing=g.EDGES.find(e=>e!==incoming&&e.type==='highway'&&e.a===incoming.b);
+ const indexAt=(e,arc)=>{let k=0;while(k<e.n-1&&e.arc[k]<arc)k++;return e.s+k;};
+ const back=indexAt(incoming,incoming.length-18),front=indexAt(outgoing,18);
+ const dx=ar.RX[front]-ar.RX[back],dz=ar.RZ[front]-ar.RZ[back],length=Math.hypot(dx,dz),tx=dx/length,tz=dz/length;
+ assert.ok(length>6&&length<60);
+ for(const followerSlot of [0,1]){
+  for(const [slot,c] of g.cars.entries()){const i=slot===followerSlot?back:front;g.placeCar(c,ar.RX[i],ar.RZ[i],Math.atan2(-tz,tx)+(slot?1.1:-1));Object.assign(c,{contact:1,frozen:false,inWater:false,vwx:tx*28,vwz:tz*28,gear:3,inp:{thr:1,brk:0,hb:false,clutch:false}});}
+  for(let k=0;k<1440;k++)g.updateSlipstream(1/240);
+  const c=g.cars[followerSlot],leader=g.cars[1-followerSlot];assert.equal(c.draftEligible,true,'P'+(followerSlot+1)+' drift wake crosses road seam');assert.equal(leader.draftEligible,false);
+  assert.ok(c.draftSpeedBonus*3.6>29);assert.ok(g.speedAssistAcceleration(c,28,-2,1/240,20)>0);assert.match(g.speedAssistLabel(c),/SLIPSTREAM/);
+ }
+ g.setSplit(false);g.setStarted(false);
+});
+
+test('added acceleration follows existing travel direction during a drift in either player slot',()=>{
+ g.endRace();g.setSplit(true);g.setStarted(true);g.race.active=true;g.race.state='run';const ar=g.arrays,e=g.EDGES.find(e=>e.type==='highway'),i=e.s+Math.floor(e.n/2),tx=ar.TXa[i],tz=ar.TZa[i];
+ const run=(c,enabled)=>{g.placeCar(c,ar.RX[i],ar.RZ[i],Math.atan2(-tz,tx)+1);g.prePhys(c);Object.assign(c,{vwx:tx*25,vwz:tz*25,gear:3,wR:25*Math.cos(1)/.32,raceEligible:enabled,raceTargetSpeed:40,inp:{thr:1,brk:0,hb:false,clutch:false}});g.step(c,1/240);return {x:c.vwx,z:c.vwz,extra:c.assistAx};};
+ const changes=[];
+ for(const c of g.cars){const base=run(c,false),boosted=run(c,true),dx=boosted.x-base.x,dz=boosted.z-base.z;assert.ok(boosted.extra>0);assert.ok(dx*tx+dz*tz>0);assert.ok(Math.abs(dx*tz-dz*tx)<1e-8,'assist must not steer a drifting car');changes.push(Math.hypot(dx,dz));}
+ assert.ok(Math.abs(changes[0]-changes[1])<1e-8);g.endRace();g.setSplit(false);g.setStarted(false);
+});
+
+test('shared split physics tick gives either trailing player acceleration and its own HUD target',()=>{
+ g.endRace();g.setSplit(true);g.setStarted(true);const ar=g.arrays,e=g.EDGES.find(e=>e.type==='highway'),centre=Math.floor(e.n/2),start=centre-60,end=centre+60;
+ const route=[];for(let k=start;k<=end;k++)route.push({x:ar.RX[e.s+k],z:ar.RZ[e.s+k],distance:e.arc[k]-e.arc[start]});
+ for(const trailingSlot of [0,1]){
+  Object.assign(g.race,{active:true,state:'run',loop:false,route,length:route.at(-1).distance,cps:[route[0],route.at(-1)],course:[{...route.at(-1),tx:ar.TXa[e.s+end],tz:ar.TZa[e.s+end],width:10}],players:[]});
+  for(const [slot,c] of g.cars.entries()){const i=e.s+centre+(slot===trailingSlot?-12:12);g.placeCar(c,ar.RX[i],ar.RZ[i],Math.atan2(-ar.TZa[i],ar.TXa[i])+.9);Object.assign(c,{frozen:false,gear:3,vwx:ar.TXa[i]*25,vwz:ar.TZa[i]*25,wR:25*Math.cos(.9)/.32,inp:{thr:1,brk:.0001,hb:false,clutch:false}});g.race.players.push({next:0,done:false,samples:[],teleportVersion:c.teleportVersion,previous:{x:c.x,y:c.y,z:c.z},previousTime:0});}
+  g.stepPlayers(1/240,1);const follower=g.cars[trailingSlot],leader=g.cars[1-trailingSlot];assert.equal(follower.raceEligible,true);assert.ok(follower.assistAx>0);assert.equal(leader.raceEligible,false);assert.equal(leader.assistAx,0);
+  g.cars.forEach(g.updHud);assert.match(follower.hud.assist.textContent,/CATCH-UP/);assert.equal(leader.hud.assist.textContent,'RACE LEADER');
+ }
+ g.endRace();g.setSplit(false);g.setStarted(false);
+});
+
+test('catch-up uses lap progress and gives per-player reasons when temporarily blocked',()=>{
+ g.endRace();g.setSplit(true);g.setStarted(true);Object.assign(g.race,{active:true,state:'run',loop:true,laps:2,length:100,cps:[{x:0,z:0},{x:50,z:0},{x:100,z:0}],route:[{x:0,z:0,distance:0},{x:100,z:0,distance:100}],course:[{x:50,z:0,tx:1,tz:0,distance:50},{x:100,z:0,tx:1,tz:0,distance:100}]});
+ for(const trailingSlot of [0,1]){
+  g.race.players=g.cars.map((c,i)=>({next:i===trailingSlot?0:2,done:false}));
+  for(const [slot,c] of g.cars.entries()){g.clearSpeedAssists(c);Object.assign(c,{x:slot===trailingSlot?40:10,z:0,yaw:.9,vwx:20,vwz:0,contact:1,frozen:false,inWater:false,wallContact:0,shiftT:0,gear:2,inp:{thr:1,brk:0,hb:false,clutch:false}});}
+  g.updateRaceBoost(2);const c=g.cars[trailingSlot];assert.equal(c.raceEligible,true);assert.equal(c.raceBoost,.4);
+  c.inp.clutch=true;g.updateRaceBoost(1/240);assert.match(g.speedAssistLabel(c),/CLUTCH/);c.inp.clutch=false;c.shiftT=.1;g.updateRaceBoost(1/240);assert.match(g.speedAssistLabel(c),/SHIFTING/);c.shiftT=0;
+  c.inp.thr=0;g.updateRaceBoost(1/240);assert.match(g.speedAssistLabel(c),/ACCELERATE/);c.inp.thr=1;g.updateRaceBoost(2);assert.equal(c.raceBoost,.4);
+ }
+ g.endRace();g.setSplit(false);g.setStarted(false);
 });
