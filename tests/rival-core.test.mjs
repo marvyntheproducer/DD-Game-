@@ -40,3 +40,16 @@ test('V6.3 growing-spin countersteer matches front tyre flow and releases once y
 test('V6.3 pressure contact stops when the rival is already sliding hard',()=>{
  const s={ahead:5,across:0,speed:30,leadSpeed:27,gap:20,room:3,aligned:true,stable:false};const p=R.tactics(s,{nudgeTime:.1},.05);assert.equal(p.nudge,false);assert.notEqual(p.mode,'pressure');assert.equal(R.tactics({...s,stable:true},{},.05).nudge,true);
 });
+
+// Extreme yaw requests must saturate tyre force before asking for full lock.
+test('V6.4 force steering is progressive, mirrored and bounded by available front grip',()=>{
+ const steer=r=>R.forceSteer(r,30,0,0,1.2,1.28,1250);
+ assert.equal(steer(0),0);assert.ok(steer(.1)>0&&steer(.1)<steer(.2));assert.ok(Math.abs(steer(.2)+steer(-.2))<1e-10);assert.ok(steer(100)<.1);
+ for(const mass of [900,1700])for(const mu of [.4,1.6])for(const vx of [0,5,50])assert.ok(Number.isFinite(R.forceSteer(.5,vx,2,.2,mu,mu,mass,-5,5)));
+ assert.ok(Math.abs(R.forceSteer(.3,30,3,.2,1.2,1.28,1250)-R.forceSteer(.301,30,3,.2,1.2,1.28,1250))<.001);
+});
+
+test('V6.4 controlled slides keep progress but growing spin and road-edge slides demand recovery',()=>{
+ const slide=(b=.28,g=.02,r=.5,d=.52,v=20,k=-.02,l=0,room=4)=>R.controlledSlide(b,g,r,d,v,k,l,room);
+ assert.equal(slide(),true);assert.equal(slide(-.28,.02,-.5,-.52),true);assert.equal(slide(.6),false);assert.equal(slide(.28,.3),false);assert.equal(slide(.28,.02,.5,-.5),false);assert.equal(slide(.28,.02,.5,.5,20,-.02,3.5),false);assert.equal(slide(.28,.02,.5,.5,20,0),false);
+});
