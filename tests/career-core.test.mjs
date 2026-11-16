@@ -13,3 +13,6 @@ test('all configured race entry points honor the solo opponent and exclude AI in
  g.soloCareer.options.opponent='rival';vm.runInContext('split=true',c);assert.equal(g.startConfiguredRace().rival,false);
  const html=fs.readFileSync(new URL('../Drift Drive/index.html',import.meta.url),'utf8');assert.match(html,/else startConfiguredRace\(\);return;/);assert.match(html,/return quick\?startConfiguredRace\(\):true/);
 });
+
+
+test('career navigation distinguishes forward, left, right and return directions',()=>{assert.equal(C.navigationArrow(0),'↑');assert.equal(C.navigationArrow(Math.PI/2),'↱');assert.equal(C.navigationArrow(-Math.PI/2),'↰');assert.equal(C.navigationArrow(Math.PI),'↶');});

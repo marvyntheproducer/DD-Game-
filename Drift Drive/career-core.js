@@ -31,5 +31,6 @@
  function ghostValid(raw,key){if(typeof key!=='string'||key.length>20000||!raw||raw.key!==key||!Array.isArray(raw.samples)||raw.samples.length<2||raw.samples.length>6001)return false;let last=-1;
   for(const s of raw.samples){if(!Array.isArray(s)||s.length!==5||!s.every(Number.isFinite)||s[0]<0||s[0]<=last||s[0]>900||Math.abs(s[1])>7100||Math.abs(s[2])>2000||Math.abs(s[3])>7100||Math.abs(s[4])>10000)return false;last=s[0];}return true;}
  function ghostPose(samples,t){if(!samples?.length||t<samples[0][0]||t>samples.at(-1)[0])return null;let lo=0,hi=samples.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(samples[m][0]<t)lo=m;else hi=m;}const a=samples[lo],b=samples[hi],u=Math.max(0,Math.min(1,(t-a[0])/(b[0]-a[0]))),yaw=Math.atan2(Math.sin(b[4]-a[4]),Math.cos(b[4]-a[4]));return {x:a[1]+(b[1]-a[1])*u,y:a[2]+(b[2]-a[2])*u,z:a[3]+(b[3]-a[3])*u,yaw:a[4]+yaw*u};}
- root.CAREER_CORE={chapters,events,normalize,unlocked,next,reputation,chapterComplete,medal,award,ghostValid,ghostPose};
+ function navigationArrow(angle){return Math.abs(angle)<.4?'↑':Math.abs(angle)>2.4?'↶':angle>0?'↱':'↰';}
+ root.CAREER_CORE={navigationArrow,chapters,events,normalize,unlocked,next,reputation,chapterComplete,medal,award,ghostValid,ghostPose};
 })(typeof window==='object'?window:globalThis);
