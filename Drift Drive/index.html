@@ -8973,7 +8973,7 @@ addEventListener('keydown',e=>{if(soloCareer.panelOpen){if(e.code==='Escape'){e.
     case 'KeyP':if(race.active)endRace();tuneEl.style.display=tuneEl.style.display==='block'?'none':'block';break;
     case 'KeyH':showHelp=!showHelp;document.getElementById('help').style.display=showHelp?'':'none';break;
     case 'Digit2':setSplit(!split);break;case 'Tab':mapOpen?closeMap():openMap(false);break;case 'KeyB':openMap(true);break;
-    case 'KeyG':if(soloCareer.active)launchCareerEvent(soloCareer.active.eventId,true);else startRace({rival:!split&&soloCareer.options.opponent==='rival'});break;case 'Escape':if(race.active)endRace();else if(mapOpen)closeMap();else openMainMenu();break;
+    case 'KeyG':if(soloCareer.active)launchCareerEvent(soloCareer.active.eventId,true);else startConfiguredRace();break;case 'Escape':if(race.active)endRace();else if(mapOpen)closeMap();else openMainMenu();break;
     case 'Equal':renderer.toneMappingExposure*=1.1;break;case 'Minus':renderer.toneMappingExposure/=1.1;break;}});
 addEventListener('keyup',e=>{keys[e.code]=false;if(photo?.keys)photo.keys.delete(e.code);});
 addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
@@ -9484,7 +9484,7 @@ function presetCourse(kind){
   race.cps=race.cps.map(raceAnchor).filter(Boolean);saveRace();
 }
 bpanel.addEventListener('click',e=>{const a=e.target.dataset.a;if(!a)return;
-  if(a==='close'){closeMap();return;}if(a==='start'){if(garage.menuBuilding)launchLobby(true);else startRace();return;}if(race.active)return;
+  if(a==='close'){closeMap();return;}if(a==='start'){if(garage.menuBuilding)launchLobby(true);else startConfiguredRace();return;}if(race.active)return;
   if(a==='clear')race.cps=[];if(a==='undo')race.cps.pop();if(a==='reverse')race.cps.reverse();if(a==='loop')race.loop=!race.loop;
   if(a==='lm')race.laps=Math.max(1,race.laps-1);if(a==='lp')race.laps=Math.min(10,race.laps+1);
   if(['highway','mountain','coast','tunnel'].includes(a)){presetCourse(a);return;}
@@ -10289,13 +10289,14 @@ function renderLobby(){
  lobby.innerHTML='<div class="lobby-grid"><div><h3>CHOOSE YOUR JDM LEGEND</h3>'+carThumbnail(id,b.paint)+field('Player 1','lobby-car1',options,garage.ids[0])+((garage.mode==='split'||garage.mode==='quick'&&garage.quickPlayers===2)?field('Player 2','lobby-car2',options,garage.ids[1]):'')+(two?field('Edit appearance','lobby-slot',[[0,'Player 1'],[1,'Player 2']],slot):'')+'<p>'+car.era+' · original lightweight body model</p><label>Player 1 name <input id="lobby-name1" maxlength="18" value="'+escapeText(garage.names[0])+'"></label>'+((garage.mode==='split'||garage.mode==='quick'&&garage.quickPlayers===2)?'<label>Player 2 name <input id="lobby-name2" maxlength="18" value="'+escapeText(garage.names[1])+'"></label>':'')+'<label>Paint <input id="lobby-paint" type="color" value="'+b.paint+'"></label>'+field('Wheels','lobby-wheels',[['six','Bronze six-spoke'],['five','Silver five-spoke'],['dish','Gunmetal dish']],b.wheels)+field('Spoiler · solo','lobby-spoiler',[['none','Clean trunk'],['factory','Factory style'],['ducktail','Ducktail'],['gt','GT wing']],b.spoiler)+field('Front bumper · solo','lobby-frontBumper',[['factory','Factory'],['street','Street lip'],['drift','Drift bumper']],b.frontBumper)+field('Rear bumper · solo','lobby-rearBumper',[['factory','Factory'],['street','Street spats'],['drift','Drift diffuser']],b.rearBumper)+'<label>Tyre smoke · solo <input id="lobby-smokeColor" type="color" value="'+b.smokeColor+'"></label></div><div><h3>'+(garage.mode==='quick'?'QUICK RACE':'SET UP BEFORE DRIVING')+'</h3><button data-lobby="street">Street racing setup</button><button data-lobby="drift">Drifting setup</button><button data-lobby="tune">Engine & fine tuning</button><p>Current tune: '+escapeText(ENGINE_PROFILES[P.engine].name)+' · '+Math.round(P.hp)+' hp. '+(garage.mode==='split'||garage.mode==='quick'&&garage.quickPlayers===2?'Split-screen shares the session physics/engine tune.':'')+'</p>'+(garage.mode==='quick'?field('Players','lobby-players',[[1,'Solo race'],[2,'Local split-screen']],garage.quickPlayers)+(garage.quickPlayers===1?careerQuickOptions():'')+field('Pre-built route','lobby-route',[['highway','Aoi Expressway Sprint'],['mountain','Fujimi Mountain Circuit'],['coast','Shiosai Coastal Sprint'],['tunnel','Shiosai Tunnel Run'],['custom','Current / custom course']],garage.route||'highway')+'<button data-lobby="builder">Open race builder</button><p>'+escapeText(race.name)+' · '+(race.length/1000).toFixed(1)+' km · '+race.course.length+' checkpoints</p>':'<p>Cruise freely, explore or build races after driving. Radio starts automatically; J → Cruise radio changes the station or turns it off.</p>')+'<button class="launch" data-lobby="launch">'+(garage.mode==='quick'?'START RACE':'ENTER '+(garage.mode==='split'?'SPLIT SCREEN':'SOLO'))+'</button><p id="lobby-error" class="notice"></p></div></div>';
 }
 function openLobbyBuilder(){garage.route='custom';garage.menuBuilding=true;overlay.style.display='none';openMap(true);return true;}
+function startConfiguredRace(){return startRace({rival:!split&&soloCareer.options.opponent==='rival'});}
 function launchLobby(forceRace=false){
  if(!window.gameReady)return false;
  const quick=forceRace||garage.mode==='quick',two=garage.mode==='split'||quick&&garage.quickPlayers===2;
  if(quick){if(!garage.route)garage.route='highway';if(!forceRace&&garage.route!=='custom')presetCourse(garage.route);prepareCourse();if(!race.course.length){if(garage.menuBuilding)bpanel.innerHTML+='<p role="alert">Add two different road points before starting.</p>';document.getElementById('lobby-error').textContent='Choose a pre-built route or add at least two different road points.';return false;}}
  garage.menuBuilding=false;closeMap();tuneEl.style.display='none';tuneEl.dataset.lobby='';
  setSplit(two);for(let slot=0;slot<cars.length;slot++)if(cars[slot].carId!==garage.ids[slot])replaceVehicle(slot,garage.ids[slot]);
- startMode(two);return quick?startRace({rival:!two&&soloCareer.options.opponent==='rival'}):true;
+ startMode(two);return quick?startConfiguredRace():true;
 }
 lobby.addEventListener('click',e=>{
  const action=e.target.dataset.lobby;
