@@ -23,3 +23,8 @@ test('loading progress follows real stage work and startup failures expose a wor
  c.window.setStartupProgress(1,6,50);assert.equal(get('load-track').attributes['aria-valuenow'],'25');assert.equal(get('load-fill').style.width,'25%');c.window.setStartupProgress(6,6);assert.equal(get('load-percent').textContent,'100%');
  c.window.reportStartupError(new Error('test'));assert.equal(get('load-retry').hidden,false);assert.equal(get('load-panel').dataset.failed,'true');get('load-retry').click();assert.equal(reloaded,true);assert.doesNotMatch(html,/<button[^>]+onclick=/);
 });
+
+
+test('career starts remain numbered and separated on a short desktop window map',async()=>{
+ const {loadGame}=await import('./game-harness.mjs');const {game:g}=loadGame(),markers=g.careerMapMarkers(372,(x,z)=>[x,z]),mini=g.careerMapMarkers(200,(x,z)=>[x,z]);assert.equal(markers[2].x-markers[0].x,23);assert.equal(mini[2].x-mini[0].x,12);
+});
