@@ -1,4 +1,4 @@
-# Drift Drive V6.0 — Valley / After Hours
+# Drift Drive V6.1 — After Hours
 
 A Three.js / Web Audio driving game with free roam, local split-screen, engine
 swaps, drift tuning, and custom road races. Locations are fictional and inspired
@@ -498,3 +498,13 @@ Earn three persistent sponsor packages with body stripes, banner text, wheel fin
 Validation covers sequential completion of all twelve events, failed/aborted objectives, saved reward restoration, destination navigation, ghost ownership/invalidation, one-human/two-racer separation, split-screen isolation and laptop graphics settings. Physics qualification drives the rival through all six opponent routes and all four Quick Race presets (including the two-lap mountain marathon) with a street setup, plus two city/highland routes with a 600 hp drift setup. Existing V4 camera, split-screen assist, checkpoint, audio and offline desktop checks remain. Native frame rate and subjective handling still need a hands-on check on the target Mac/Windows hardware; the career options show a recent frame-rate estimate.
 
 See [CAREER.md](CAREER.md) for the player guide and hardware play-test checklist.
+
+
+## V6.1 — Competitive nights
+
+- Faster matched-tune rival: removes the 144 km/h planning cap and fixed horsepower-based throttle restriction, uses tyre-slip traction control and a higher corner-speed envelope, and gently adapts driving pace to the race gap.
+- All twelve career starts on solo maps with numbered ready/complete/locked diamonds, click/list selection, GPS and stop/press-F instructions.
+- A simpler black/olive/yellow street-racing home menu, separate setup/garage/settings screens and folded appearance controls.
+- Actual-stage loading progress, a lightweight car graphic, a career tip, reduced-motion support and a CSP-compatible retry button.
+
+See CAREER.md for controls and target-machine play tests. Existing career saves carry forward.

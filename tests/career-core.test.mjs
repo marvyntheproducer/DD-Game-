@@ -16,3 +16,10 @@ test('all configured race entry points honor the solo opponent and exclude AI in
 
 
 test('career navigation distinguishes forward, left, right and return directions',()=>{assert.equal(C.navigationArrow(0),'↑');assert.equal(C.navigationArrow(Math.PI/2),'↱');assert.equal(C.navigationArrow(-Math.PI/2),'↰');assert.equal(C.navigationArrow(Math.PI),'↶');});
+
+test('loading progress follows real stage work and startup failures expose a working retry',()=>{
+ const html=fs.readFileSync(new URL('../Drift Drive/index.html',import.meta.url),'utf8'),script=html.match(/<script>([\s\S]*?)<\/script>/)[1],nodes=new Map();let reloaded=false;
+ const get=id=>{if(!nodes.has(id))nodes.set(id,{style:{},dataset:{},attributes:{},setAttribute(k,v){this.attributes[k]=v;},addEventListener(k,fn){this[k]=fn;}});return nodes.get(id);};const c={window:{addEventListener(){}},document:{getElementById:get},console:{error(){}},location:{reload(){reloaded=true;}}};vm.createContext(c);vm.runInContext(script,c);
+ c.window.setStartupProgress(1,6,50);assert.equal(get('load-track').attributes['aria-valuenow'],'25');assert.equal(get('load-fill').style.width,'25%');c.window.setStartupProgress(6,6);assert.equal(get('load-percent').textContent,'100%');
+ c.window.reportStartupError(new Error('test'));assert.equal(get('load-retry').hidden,false);assert.equal(get('load-panel').dataset.failed,'true');get('load-retry').click();assert.equal(reloaded,true);assert.doesNotMatch(html,/<button[^>]+onclick=/);
+});

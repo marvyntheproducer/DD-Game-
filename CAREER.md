@@ -1,4 +1,4 @@
-# Valley / After Hours — V6 solo guide
+# Valley / After Hours — V6.1 solo guide
 
 ## Start or resume
 
@@ -7,7 +7,15 @@
 3. Select **Set start destination** on the career board. Drive to the gold start ring, stop and press **F** to begin.
 4. Pass every checkpoint in order. Results explain the objective, medal and next destination. Progress saves after completion.
 
-The main-menu **Graphics** button switches between Auto and Laptop before you drive. Laptop mode is recommended for older integrated-graphics Macs. The career board's Race Options contains the same setting and a recent frame-rate estimate. This estimate is not a guarantee of sustained frame rate.
+The main-menu **Settings → Graphics** button switches between Auto and Laptop before you drive. Laptop mode is recommended for older integrated-graphics Macs. The career board's Race Options contains the same setting and a recent frame-rate estimate. This estimate is not a guarantee of sustained frame rate.
+
+## Find events on the map
+
+Press **Tab** in solo. Numbered diamonds show all twelve career starts: **gold = ready**, **green = completed**, **grey = locked**. Click a diamond or use the event list, then choose **GPS to Event Start**. Follow the route to the gold ring, slow below **11 km/h**, and press **F**. Locked starts explain which progression is required. Completed starts offer a rematch. Garage career boards still work.
+
+## Main menu and loading
+
+The home screen contains Career, Free Ride, Quick Race, Split Screen, Garage and Settings. Choose a driving mode to open its setup screen; appearance and driver names are folded away. Garage opens those controls directly. Escape returns to the main screen. The black/olive/yellow street-racing presentation uses original art and typography. Loading shows actual build-stage progress, a driving tip and a retry control if startup fails; reduced-motion settings disable the moving car graphic.
 
 ## Twelve-event career
 
@@ -15,7 +23,7 @@ The main-menu **Graphics** button switches between Auto and Laptop before you dr
 |---|---|---|
 | Local Reputation · Ren | First Light | Complete the city time trial within the bronze target |
 | Local Reputation · Ren | Finding Your Angle | Finish the route with six seconds of controlled road drifting |
-| Local Reputation · Ren | Ren's First Run | Beat the medium rival on a city sprint |
+| Local Reputation · Ren | Ren's First Run | Beat the competitive rival on a city sprint |
 | Local Reputation · Ren | Valley Calling | Win one valley circuit lap |
 | After Hours · Aya | Salt in the Air | Complete the coastal time trial |
 | After Hours · Aya | Afterglow Slide | Finish the harbour/tunnel route with eight seconds of drifting |
@@ -32,7 +40,7 @@ After each chapter, **Garage rewards** offers a sponsor livery/wheel/spoiler pac
 
 ## Solo rivals and tuning
 
-Quick Race offers **Medium Rival** or **Time Trial / Ghost**. Career events choose the appropriate mode automatically. Rival events use one opponent with your car and current power, gearing, mass and handling tune. Medium pace comes from its driving decisions, not an artificial power advantage. It brakes for corners, uses gears, collides normally, attempts to pass and takes the same recovery penalty when stuck. Open tuning before starting; opening tuning during a race ends that run.
+Quick Race offers **Competitive Rival** or **Time Trial / Ghost**. Career events choose the appropriate mode automatically. Rival events use one opponent with your car and current power, gearing, mass and handling tune. Competitive pace comes from its driving decisions, not an artificial power advantage. It uses the available power with tyre-slip traction control, brakes later, carries a faster corner pace, uses gears, collides normally, attempts to pass and takes the same recovery penalty when stuck. Driving pace changes gently with the race gap (up to 2.5% more when chasing and 7% less when well ahead), while power, grip, position and checkpoint rules stay unchanged. Open tuning before starting; opening tuning during a race ends that run.
 
 Solo rivals and players can draft. The existing 40% catch-up assistance remains exclusive to split-screen races. No rival is created in split screen. Solo keeps only your camera, HUD and minimap. A rival is marked on the map, has no additional engine voice and uses lean visual effects.
 
