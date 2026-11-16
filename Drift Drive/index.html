@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Drift Drive V6.1 — After Hours</title>
+<title>Drift Drive V6.3 — After Hours</title>
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
 #hud{position:fixed;right:28px;bottom:24px;color:#fff;text-align:right;text-shadow:0 2px 6px #000a;pointer-events:auto}
@@ -58,7 +58,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:syste
 <style>#bigmap{z-index:40!important;top:40%!important}#bpanel{z-index:41}#maptoolbar{z-index:42;max-height:27vh!important} @media(max-height:760px){#overlay{justify-content:flex-start!important;padding:24px 40px!important}#overlay .arcade-logo{font-size:48px!important}#overlay .arcade-mode{padding:9px 16px!important}} #career-map-info{flex-basis:100%;background:#101a17ed;border-top:1px solid #89985c;padding:10px 14px;font:12px/1.4 system-ui;color:#e6e9d8;text-align:left}#career-map-info label{display:inline-flex;gap:8px;margin:8px 16px}#career-map-info p{margin:5px 0}.map-legend{color:#bbc3a2;font:10px monospace;margin-left:12px}#maptoolbar{flex-wrap:wrap;max-height:35vh;overflow:auto}#maptoolbar select{max-width:60vw}</style></head>
 <body>
 <div id="overlay" role="dialog" aria-label="Drift Drive main menu">
-<div class="arcade-kicker">JDM NIGHTS / AFTER HOURS / V6.1</div><div class="arcade-logo">DRIFT <span>DRIVE</span></div><div class="arcade-tag">山道 — THE ROAD IS YOURS</div>
+<div class="arcade-kicker">JDM NIGHTS / AFTER HOURS / V6.3</div><div class="arcade-logo">DRIFT <span>DRIVE</span></div><div class="arcade-tag">山道 — THE ROAD IS YOURS</div>
 <div id="ovtext">WAKING THE VALLEY</div><small id="ovsub">Preparing your drive</small>
 <section id="load-panel" aria-label="Loading the game"><div class="load-road" aria-hidden="true"><i></i></div><div id="load-track" role="progressbar" aria-label="World preparation" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="load-fill"></div></div><div class="load-meta"><span id="load-stage">WORLD PREPARATION</span><span id="load-percent">0%</span></div><p id="load-tip">Career: find a gold event on the map, drive to its start, stop and press F.</p><button id="load-retry" hidden>RETRY STARTUP</button></section>
 <div id="menu-controls"><div class="mode-grid">
@@ -7730,6 +7730,7 @@ window.addEventListener('unhandledrejection',event=>window.reportStartupError(ev
 // END BUNDLED CLIPPER
 </script>
 <script src="career-core.js"></script>
+<script src="rival-core.js"></script>
 <script src="sounds.js"></script>
 <script src="cruise-radio.js"></script>
 <script src="jdm-bank-JZ2Tour.js"></script>
@@ -8824,7 +8825,7 @@ function canSpeedAssist(c,speed,lateral=0){return !speedAssistBlock(c,speed);}
 function speedAssistTarget(c){
   const draft=c.draftEligible?c.draftTargetSpeed||0:0;
   const catchup=c.raceEligible&&race.active&&race.state==='run'?c.raceTargetSpeed||0:0;
-  return Math.min(ASSIST_SPEED_CAP,Math.max(draft,catchup));
+  const cap=c.isAI&&Number.isFinite(c.ai?.assistLimit)?clamp(c.ai.assistLimit,0,ASSIST_SPEED_CAP):ASSIST_SPEED_CAP;return Math.min(cap,Math.max(draft,catchup));
 }
 function speedAssistAcceleration(c,vx,baseAx,h,lateral=0){
   if(!(h>0)||!Number.isFinite(h)||!canSpeedAssist(c,vx,lateral))return 0;
@@ -8880,13 +8881,13 @@ function updateSlipstream(h){const participants=raceCars(),enabled=split||!!solo
 }
 
 function updateRaceBoost(h){
-  let trailing=-1,positions=null;
-  if(started&&split&&cars.length===2&&race.active&&race.state==='run'&&race.players.length===2&&race.players.every(p=>!p.done)){
-    positions=race.players.map((p,i)=>racePosition(cars[i],p));
+  const participants=raceCars();let trailing=-1,positions=null;
+  if(started&&(split||!!soloCareer.rival)&&participants.length===2&&race.active&&race.state==='run'&&race.players.length===2&&race.players.every(p=>!p.done)){
+    positions=race.players.map((p,i)=>racePosition(participants[i],p));
     if(!positions.every(Boolean))positions=null;else if(Math.abs(positions[0].progress-positions[1].progress)>3)trailing=positions[0].progress<positions[1].progress?0:1;
   }
-  const motion=cars.map(assistMotion);
-  cars.forEach((c,i)=>{
+  const motion=participants.map(assistMotion);
+  participants.forEach((c,i)=>{
     const position=positions?.[i],lead=motion[1-i],leaderPosition=positions?.[1-i];
     c.raceRole=!positions?'':trailing<0?'level':i===trailing?'trailing':'leader';
     // Compare motion to the local route segment, not a distant checkpoint's heading.
@@ -8951,9 +8952,9 @@ const CTRL=[{thr:['KeyW'],brk:['KeyS'],left:['KeyA'],right:['KeyD'],hb:['Space']
 const isDown=l=>l.some(k=>keys[k]);
 const tuneEl=document.getElementById('tune');let showHelp=true,helpOpen=false,helpPauseAt=0;
 const HELP_TOPICS={
- drive:`<h3>Get moving</h3><table><tr><th>Action</th><th>Solo / Player 1</th><th>Player 2</th></tr><tr><td>Accelerate / brake / reverse</td><td>W / S</td><td>↑ / ↓</td></tr><tr><td>Steer</td><td>A / D</td><td>← / →</td></tr><tr><td>Handbrake</td><td>Space</td><td>Right Shift or Enter</td></tr><tr><td>Clutch</td><td>Left Shift</td><td>/</td></tr><tr><td>Shift down / up</td><td>Q / E</td><td>, / .</td></tr><tr><td>Reset / camera</td><td>R / C</td><td>Backslash / Apostrophe</td></tr></table><p>Solo also supports arrow keys. M switches automatic/manual gears. P opens tuning; Tab opens the map. J opens the cruise hub; O opens photo mode in solo. Esc returns to the menu.</p><p>In split screen, follow a moving car closely and smoothly for slipstreaming up to 60 metres back. It gradually targets up to 30 km/h above the leading car. Faint edge streaks and the target-speed readout show when it is working. In split-screen races, the trailing car targets 140% of the leader’s speed until it catches up. Keep accelerating; braking or clutching pauses the assistance. Sideways slides keep the acceleration active while you travel along the route or stay in the wake. Scraping barriers costs speed.</p>`,
+ drive:`<h3>Get moving</h3><table><tr><th>Action</th><th>Solo / Player 1</th><th>Player 2</th></tr><tr><td>Accelerate / brake / reverse</td><td>W / S</td><td>↑ / ↓</td></tr><tr><td>Steer</td><td>A / D</td><td>← / →</td></tr><tr><td>Handbrake</td><td>Space</td><td>Right Shift or Enter</td></tr><tr><td>Clutch</td><td>Left Shift</td><td>/</td></tr><tr><td>Shift down / up</td><td>Q / E</td><td>, / .</td></tr><tr><td>Reset / camera</td><td>R / C</td><td>Backslash / Apostrophe</td></tr></table><p>Solo also supports arrow keys. M switches automatic/manual gears. P opens tuning; Tab opens the map. J opens the cruise hub; O opens photo mode in solo. Esc returns to the menu.</p><p>In split screen, follow a moving car closely and smoothly for slipstreaming up to 60 metres back. It gradually targets up to 30 km/h above the leading car. Faint edge streaks and the target-speed readout show when it is working. In split-screen and solo rival races, the trailing car targets 140% of the leader’s speed until it catches up. Keep accelerating; braking or clutching pauses the assistance. Sideways slides keep the acceleration active while you travel along the route or stay in the wake. Scraping barriers costs speed.</p>`,
  drift:`<h3>Start with a gentle slide</h3><ol><li>Choose the Drifting setup in tuning (P). Leave assists on (T).</li><li>Enter a corner at moderate speed. Steer, then briefly tap the handbrake.</li><li>Countersteer and ease the throttle to hold the slide. Too much throttle or angle can spin you.</li></ol><h3>Clutch kick</h3><p>Hold the clutch, briefly raise revs, then release while accelerating. Use a short kick to break rear traction. Ease off to recover grip.</p><p>L toggles the suggested racing line. R returns you to the road.</p>`,
- race:`<h3>Start a career event</h3><ol><li>Press Tab to open the map. Gold diamonds are ready events; green are complete and grey are locked.</li><li>Click a diamond or choose an event from the list, then choose GPS to Event Start.</li><li>Follow the gold route, stop inside the start ring (below 11 km/h), then press F.</li></ol><p>You can also visit a garage career board.</p><h3>Solo career</h3><p>Choose Solo Career in the main menu. Drive to the marked hub, stop and press F for its career board. Set an event destination, then drive to its start and press F. Twelve events unlock three sponsor packages. Quick Race offers a matched-tune competitive rival or personal-best ghost.</p><h3>Choose your route</h3><ol><li>Pick Quick Race in the main menu and select a preset, or open Build Route.</li><li>In the builder (B), click road points in travel order. Backspace removes the last point. Choose sprint or circuit and laps.</li><li>Press G to start. Wait for GO, then follow the arrow through each green checkpoint in order.</li></ol><p>All checkpoints stay visible. Cross each arch in the indicated direction; driving around it does not count. The amber arch marks the finish or lap line.</p><p>Missed a checkpoint? Turn back and cross it correctly, or reset (R for P1, Backslash for P2). Recovery adds 5 seconds. Esc exits the race; G restarts it.</p>`
+ race:`<h3>Start a career event</h3><ol><li>Press Tab to open the map. Gold diamonds are ready events; green are complete and grey are locked.</li><li>Click a diamond or choose an event from the list, then choose GPS to Event Start.</li><li>Follow the gold route, stop inside the start ring (below 11 km/h), then press F.</li></ol><p>You can also visit a garage career board.</p><h3>Solo career</h3><p>Choose Solo Career in the main menu. Drive to the marked hub, stop and press F for its career board. Set an event destination, then drive to its start and press F. Twelve events unlock three sponsor packages. Quick Race offers a matched-tune pro rival or personal-best ghost.</p><h3>Choose your route</h3><ol><li>Pick Quick Race in the main menu and select a preset, or open Build Route.</li><li>In the builder (B), click road points in travel order. Backspace removes the last point. Alt-click explicitly keeps a deliberate turnaround near a junction. Choose sprint or circuit and laps.</li><li>Press G to start. Wait for GO, then follow the arrow through each green checkpoint in order.</li></ol><p>All checkpoints stay visible. Cross each arch in the indicated direction; driving around it does not count. The amber arch marks the finish or lap line.</p><p>Missed a checkpoint? Turn back and cross it correctly, or reset (R for P1, Backslash for P2). Recovery adds 5 seconds. Esc exits the race; G restarts it.</p>`
 };
 function showHelpTopic(topic){
   if(!Object.hasOwn(HELP_TOPICS,topic))topic='drive';
@@ -9385,7 +9386,7 @@ function shortestRoads(start,end){
 function raceAnchor(point){
   if(!point||!Number.isFinite(point.x)||!Number.isFinite(point.z))return null;
   let node=-1,best=Infinity;
-  for(let i=0;i<NODES.length;i++){
+  if(!point.turnaround)for(let i=0;i<NODES.length;i++){
     const d=Math.hypot(point.x-NODES[i][0],point.z-NODES[i][1]);
     const radius=Math.min(24,Math.max(12,(NODEP[i]?.r||8)+4));
     if(d<=radius&&d<best){best=d;node=i;}
@@ -9480,7 +9481,7 @@ big.addEventListener('mousedown',e=>{e.preventDefault();
   if(!builderOpen){if(!split&&e.button===0){const r=big.getBoundingClientRect(),T=(x,z)=>[(x-mapView.cx+mapView.span/2)/mapView.span*big.width,(z-mapView.cz+mapView.span/2)/mapView.span*big.width],hit=careerMapHit((e.clientX-r.left)/r.width*big.width,(e.clientY-r.top)/r.height*big.height,big.width,T);if(hit)renderCareerMapInfo(hit.event.id);}return;}if(race.active)return;if(e.button===2){race.cps.pop();saveRace();return;}
   const p=mapWorldPoint(e),q=nearestRoad(p.x,p.z),tolerance=Math.max(20,mapView.span/big.width*12);
   if(q&&q.d<tolerance&&(!race.cps.length||Math.hypot(q.px-race.cps[race.cps.length-1].x,q.pz-race.cps[race.cps.length-1].z)>30)){
-    if(race.cps.length>=32)return;race.cps.push(raceAnchor({x:q.px,z:q.pz,edge:ROAD_EDGE[q.i]}));saveRace();}});
+    if(race.cps.length>=32)return;const anchor=raceAnchor({x:q.px,z:q.pz,edge:ROAD_EDGE[q.i],turnaround:e.altKey});if(e.altKey)anchor.turnaround=true;race.cps.push(anchor);saveRace();}});
 addEventListener('mousemove',e=>{if(!mapDrag)return;mapView.cx=clamp(mapDrag.cx-(e.clientX-mapDrag.x)/big.width*mapView.span,-HALF,HALF);mapView.cz=clamp(mapDrag.cz-(e.clientY-mapDrag.y)/big.height*mapView.span,-HALF,HALF);});
 addEventListener('mouseup',()=>mapDrag=null);
 big.addEventListener('wheel',e=>{e.preventDefault();const before=mapWorldPoint(e);mapView.span=clamp(mapView.span*Math.exp(e.deltaY*.001),700,WORLD);
@@ -9501,7 +9502,7 @@ function presetCourse(kind){
   else if(kind==='coast'){race.name='Shiosai Coastal Sprint';race.loop=false;race.laps=1;const e=EDGES.find(e=>e.type==='coast');race.cps=[roadPoint(EDGES.indexOf(e),30),roadPoint(EDGES.indexOf(e),e.length-30)].map(p=>({x:p.x,z:p.z}));}
   else if(kind==='tunnel'){race.name='Shiosai Tunnel Run';race.loop=false;race.laps=1;const e=EDGES.find(e=>e.type==='tunnel');race.cps=[roadPoint(EDGES.indexOf(e),30),roadPoint(EDGES.indexOf(e),e.length-30)].map(p=>({x:p.x,z:p.z}));}
   else{race.name='Fujimi Mountain Circuit';race.loop=true;race.laps=2;race.cps=[19,21,22,23,7,8].map(i=>({x:NODES[i][0],z:NODES[i][1]}));}
-  race.cps=race.cps.map(raceAnchor).filter(Boolean);saveRace();
+  race.cps=normalizeJunctionWaypoints(race.cps.map(point=>{const anchor=raceAnchor(point);if(anchor&&point.turnaround)anchor.turnaround=true;return anchor;}).filter(Boolean));saveRace();
 }
 bpanel.addEventListener('click',e=>{const a=e.target.dataset.a;if(!a)return;
   if(a==='close'){closeMap();return;}if(a==='start'){if(garage.menuBuilding)launchLobby(true);else startConfiguredRace();return;}if(race.active)return;
@@ -9535,10 +9536,25 @@ function courseGateAtDistance(route,d){
   }
   return gateAtDistance(route,d);
 }
+// An imprecise junction click must not turn into a short visit to a side arm.
+// Retain deliberate out-and-backs: same-road neighbours, repeated destinations,
+// distant turnarounds and explicitly marked turnaround points stay untouched.
+function normalizeJunctionWaypoints(points){return points.map((p,i)=>{
+ if(i===0||i===points.length-1||p.turnaround||Number.isInteger(p.node)||!EDGES[p.edge])return p;
+ const previous=points[i-1],next=points[i+1],edge=EDGES[p.edge];
+ if(previous.edge===p.edge||next.edge===p.edge||Math.hypot(previous.x-next.x,previous.z-next.z)<2)return p;
+ const incoming=roadLeg(previous,p),outgoing=roadLeg(p,next);
+ for(const [node,arc] of [[edge.a,0],[edge.b,edge.length]]){
+  if(Math.abs(p.arc-arc)>64||navigation.adj[node].length<3)continue;
+  const [x,z]=NODES[node],passes=leg=>leg.some(q=>Math.hypot(q.x-x,q.z-z)<.02);
+  if(passes(incoming)&&passes(outgoing))return {x,z,node};
+ }
+ return p;
+});}
 function prepareCourse(){
   race.route=[];race.course=[];race.length=0;
   if(race.cps.length<2||!navigation.adj.length)return;
-  race.cps=race.cps.map(raceAnchor).filter(Boolean);if(race.cps.length<2)return;
+  race.cps=normalizeJunctionWaypoints(race.cps.map(point=>{const anchor=raceAnchor(point);if(anchor&&point.turnaround)anchor.turnaround=true;return anchor;}).filter(Boolean));if(race.cps.length<2)return;
   const wayDistances=[],count=race.cps.length+(race.loop&&race.cps.length>2?1:0);
   for(let leg=1;leg<count;leg++){
     const pts=roadLeg(race.cps[leg-1],race.cps[leg%race.cps.length]);if(pts.length<2)return;
@@ -10377,10 +10393,10 @@ function renderCareerBoard(){const p=soloCareer.progress,tab=soloCareer.tab,done
  if(soloCareer.saveError)html+='<p role="alert">'+escapeText(soloCareer.saveError)+'</p>';
  if(soloCareer.result){const r=soloCareer.result;html+=`<div class="career-result"><b>${escapeText(r.success?'EVENT COMPLETE':'TRY ANOTHER LINE')} · ${escapeText(careerEvent(r.eventId).name)}</b><p>${escapeText(r.message)}</p><button data-career="retry" data-id="${r.eventId}">Retry now</button>${r.success?'<button data-career="next">Set next destination</button>':''}</div>`;}
  if(tab==='events')for(let chapter=0;chapter<3;chapter++){html+=`<h3>${chapter+1} / ${CC.chapters[chapter].name} · ${CC.chapters[chapter].contact}</h3><p>${CC.chapters[chapter].intro}</p><div class="career-grid">`;
-  for(const e of CC.events.filter(e=>e.chapter===chapter)){const unlocked=CC.unlocked(p,e.id),r=p.results[e.id];html+=`<article><b>${escapeText(e.name)}</b><p>${e.type==='drift'?'Drift route · '+e.driftGoal+'s slide':e.rival?'Matched-tune competitive rival':'Time trial · personal-best ghost'}</p><p>${escapeText(e.message)}</p><span class="medal">${r?['','BRONZE','SILVER','GOLD'][r.medal]+' · BEST '+fmt(r.time):unlocked?'READY':'COMPLETE PREVIOUS EVENT'}</span><br><button data-career="select" data-id="${e.id}" ${unlocked?'':'disabled'}>${r?'Rematch / drive to start':'Set start destination'}</button></article>`;}html+='</div>';}
+  for(const e of CC.events.filter(e=>e.chapter===chapter)){const unlocked=CC.unlocked(p,e.id),r=p.results[e.id];html+=`<article><b>${escapeText(e.name)}</b><p>${e.type==='drift'?'Drift route · '+e.driftGoal+'s slide':e.rival?'Matched-tune pro rival':'Time trial · personal-best ghost'}</p><p>${escapeText(e.message)}</p><span class="medal">${r?['','BRONZE','SILVER','GOLD'][r.medal]+' · BEST '+fmt(r.time):unlocked?'READY':'COMPLETE PREVIOUS EVENT'}</span><br><button data-career="select" data-id="${e.id}" ${unlocked?'':'disabled'}>${r?'Rematch / drive to start':'Set start destination'}</button></article>`;}html+='</div>';}
  if(tab==='rewards'){html+='<h3>Sponsor garage · earned presets</h3><p>Complete a chapter to unlock its livery, wheel and spoiler package. Your existing free-roam customization remains available.</p><div class="career-grid">';for(let i=0;i<3;i++)html+=`<article><b>${['Valley Works · bronze & cream','After Hours · sea-glass & silver','Kurohana Club · ash & gold'][i]}</b><p>Chapter ${i+1} sponsor livery, wheel finish and spoiler preset. Adds a trophy at Valley Works.</p><button data-career="reward" data-id="${i}" ${CC.chapterComplete(p,i)?'':'disabled'}>${CC.chapterComplete(p,i)?'Apply sponsor package':'Chapter incomplete'}</button></article>`;html+='</div>';}
  if(tab==='records'){html+='<h3>Permanent route medals</h3><p>Gold: quick, clean run. Silver: meet the suggested pace. Bronze: finish the objective. Replays improve your medal and personal best; there are no expiring streaks.</p>';for(const e of CC.events){const r=p.results[e.id];html+=`<p>${escapeText(e.name)} — ${r?['','BRONZE','SILVER','GOLD'][r.medal]+' · '+fmt(r.time)+' · '+r.wins+' completion(s)':'Unrecorded'}</p>`;}}
- if(tab==='options')html+=`<h3>Solo Quick Race</h3><label>Opponent <select id="career-opponent"><option value="rival" ${soloCareer.options.opponent==='rival'?'selected':''}>Competitive rival · copies your tune</option><option value="ghost" ${soloCareer.options.opponent==='ghost'?'selected':''}>Time trial · personal-best ghost</option></select></label><p>The rival is solo-only and uses normal car physics. The 40% catch-up stays in split screen. Solo drafting works for you and the rival. No rival camera, HUD, engine voice or smoke is rendered.</p><button data-career="ghost">Personal-best ghost: ${soloCareer.options.ghost?'ON':'OFF'}</button><button data-career="graphics">Graphics: ${soloCareer.options.graphics==='laptop'?'LAPTOP':'AUTO'}</button><p>Laptop mode uses a lower pixel budget and disables real-time shadows. Physics and AI are unchanged. Recent render loop: ${Math.round(1/soloQuality.ema)} FPS estimate.</p><p>Ghosts keep the last four matching personal-best recordings, at 5 samples/second for up to 10 minutes. Recoveries invalidate ghost recording.</p>`;
+ if(tab==='options')html+=`<h3>Solo Quick Race</h3><label>Opponent <select id="career-opponent"><option value="rival" ${soloCareer.options.opponent==='rival'?'selected':''}>Pro rival · copies your tune</option><option value="ghost" ${soloCareer.options.opponent==='ghost'?'selected':''}>Time trial · personal-best ghost</option></select></label><p>The rival is solo-only and uses normal car physics. The trailing racer gets the 40% catch-up in split-screen and solo rival races. Solo drafting works for you and the rival. No rival camera, HUD, engine voice or smoke is rendered.</p><button data-career="ghost">Personal-best ghost: ${soloCareer.options.ghost?'ON':'OFF'}</button><button data-career="graphics">Graphics: ${soloCareer.options.graphics==='laptop'?'LAPTOP':'AUTO'}</button><p>Laptop mode uses a lower pixel budget and disables real-time shadows. Physics and AI are unchanged. Recent render loop: ${Math.round(1/soloQuality.ema)} FPS estimate.</p><p>Ghosts keep the last four matching personal-best recordings, at 5 samples/second for up to 10 minutes. Recoveries invalidate ghost recording.</p>`;
  html+='<h3>Discovered career hubs</h3>';for(const id of ['garage','seaside','kurohana'])html+=`<button data-career="travel" data-id="${id}" ${p.visited[id]?'':'disabled'}>${careerHub(id).name}${p.visited[id]?'':' · discover first'}</button>`;
  careerPanel.innerHTML=html;
 }
@@ -10389,7 +10405,7 @@ careerPanel.addEventListener('click',e=>{const action=e.target.dataset.career,id
  else if(action==='select')selectCareerEvent(id);else if(action==='retry')launchCareerEvent(id,true);else if(action==='next')selectCareerEvent(CC.next(soloCareer.progress).id);else if(action==='reward'){applyCareerReward(+id);renderCareerBoard();}
  else if(action==='travel')careerFastTravel(id);else if(action==='graphics'){setSoloGraphics(soloCareer.options.graphics==='laptop'?'auto':'laptop');renderCareerBoard();}else if(action==='ghost'){soloCareer.options.ghost=!soloCareer.options.ghost;saveCareer();renderCareerBoard();}});
 careerPanel.addEventListener('change',e=>{if(e.target.id==='career-opponent'&&['rival','ghost'].includes(e.target.value)){soloCareer.options.opponent=e.target.value;saveCareer();}});
-function careerQuickOptions(){return `<label>Solo opponent <select id="lobby-opponent"><option value="rival" ${soloCareer.options.opponent==='rival'?'selected':''}>Competitive rival · matched tune</option><option value="ghost" ${soloCareer.options.opponent==='ghost'?'selected':''}>Time trial / best ghost</option></select></label>`;}
+function careerQuickOptions(){return `<label>Solo opponent <select id="lobby-opponent"><option value="rival" ${soloCareer.options.opponent==='rival'?'selected':''}>Pro rival · matched tune</option><option value="ghost" ${soloCareer.options.opponent==='ghost'?'selected':''}>Time trial / best ghost</option></select></label>`;}
 function setSoloGraphics(mode){if(!['auto','laptop'].includes(mode))return false;soloCareer.options.graphics=mode;soloQuality.tier=mode==='laptop'?0:1;applyRenderQuality();saveCareer();const button=document.getElementById('menu-laptop');if(button)button.textContent='GRAPHICS · '+mode.toUpperCase();return true;}
 function showMenuPage(page){menuPage=page;if(page==='garage'){garage.mode='solo';garage.buildSlot=0;setSplit(false);}renderLobby();}
  overlay.addEventListener('keydown',e=>{if(e.code==='Escape'&&menuPage!=='home'){e.preventDefault();showMenuPage('home');}if(menuPage==='home'&&['ArrowUp','ArrowDown'].includes(e.code)){e.preventDefault();const buttons=[...overlay.querySelectorAll('.mode-grid button')].sort((a,b)=>(a.id==='menu-career'?-1:b.id==='menu-career'?1:0)),index=buttons.indexOf(document.activeElement);buttons[(index+(e.code==='ArrowDown'?1:-1)+buttons.length)%buttons.length]?.focus();}});
@@ -10418,45 +10434,69 @@ function drawCareerMap(g,S,T){if(split)return;const nav=careerDestination();for(
 function updateCareerUI(){const visible=started&&!split&&!photo.active&&!helpOpen&&!cruisePanelPaused&&!soloCareer.panelOpen;careerHUD.style.display=visible?'block':'none';if(!visible){if(soloCareer.markers)soloCareer.markers.visible=false;return;}
  if(soloCareer.markers)soloCareer.markers.visible=!race.active;
  const dest=careerDestination(),hub=careerNearHub(),p=race.players[0];let text='';
- if(soloCareer.active&&race.state==='run'){const e=careerEvent(soloCareer.active.eventId);text=e.name+(e.driftGoal?' · SLIDE '+soloCareer.active.drift.toFixed(1)+' / '+e.driftGoal+'s':'')+' · '+(e.rival?'MATCHED TUNE · COMPETITIVE RIVAL':'TIME TRIAL');}
- else if(race.active&&soloCareer.rival)text='SOLO RACE · '+(p?.position===1?'LEADING':'CHASE '+soloCareer.rival.playerName.toUpperCase())+' · COMPETITIVE / MATCHED TUNE';
+ if(soloCareer.active&&race.state==='run'){const e=careerEvent(soloCareer.active.eventId);text=e.name+(e.driftGoal?' · SLIDE '+soloCareer.active.drift.toFixed(1)+' / '+e.driftGoal+'s':'')+' · '+(e.rival?'MATCHED TUNE · PRO RIVAL':'TIME TRIAL');}
+ else if(race.active&&soloCareer.rival)text='SOLO RACE · '+(p?.position===1?'LEADING':'CHASE '+soloCareer.rival.playerName.toUpperCase())+' · PRO / MATCHED TUNE';
  else if(dest){let aim=dest;const path=soloCareer.nav.route||[];if(path.length>1){let best=Infinity,index=soloCareer.nav.cursor||0;for(let i=Math.max(0,index-8);i<Math.min(path.length,index+90);i++){const d=(path[i].x-car1.x)**2+(path[i].z-car1.z)**2;if(d<best){best=d;index=i;}}soloCareer.nav.cursor=index;aim=path[Math.min(path.length-1,index+8)];if(Math.hypot(car1.x-path.at(-1).x,car1.z-path.at(-1).z)<35)aim=dest;}const dx=aim.x-car1.x,dz=aim.z-car1.z,angle=Math.atan2(dx*Math.sin(car1.yaw)+dz*Math.cos(car1.yaw),dx*Math.cos(car1.yaw)-dz*Math.sin(car1.yaw));text=CC.navigationArrow(angle)+' '+dest.name+' · '+Math.round(Math.hypot(dest.x-car1.x,dest.z-car1.z))+' m';if(soloCareer.nav.kind==='event'&&careerNearStart(careerEvent(soloCareer.nav.id)))text+='\nSTOP HERE · F TO START';else if(hub)text+='\nF · CAREER BOARD';}
  else if(hub)text='F · '+hub.name.toUpperCase()+' CAREER BOARD';else if(!race.active)text='TAB · CAREER MAP / Choose a gold event → GPS → stop at its start → F';
  careerHUD.textContent=text;careerHUD.style.display=text?'block':'none';
  if(soloCareer.startMarker){const event=soloCareer.nav?.kind==='event'?careerEvent(soloCareer.nav.id):null;soloCareer.startMarker.visible=!!event&&!race.active;if(event){const at=careerStartPoint(event);soloCareer.startMarker.position.set(at.x,ground(at.x,at.z)+.15,at.z);}}
 }
-function spawnSoloRival(name='Ren'){if(split)return null;stopSoloRival();const c=makeCar('#a9c5bb',SOLO,car1.carId,1);c.isAI=true;c.playerName=name;c.hud={rc:{textContent:''}};c.tuneSignature=JSON.stringify(P);c.ai={clock:0,stuck:0,lastProgress:0,recoveries:0};
+function spawnSoloRival(name='Ren'){if(split)return null;stopSoloRival();const c=makeCar('#a9c5bb',SOLO,car1.carId,1);c.isAI=true;c.playerName=name;c.hud={rc:{textContent:''}};c.tuneSignature=JSON.stringify(P);c.ai={clock:0,stuck:0,lastProgress:0,recoveries:0,line:window.RIVAL_CORE.buildLine(race.route,P,(x,z,p)=>{const surface=pavedSurface(x,z);return !!surface&&Math.abs(surface.h-ground(p.x,p.z))<2;},race.loop),mode:'attack'};
  for(const name of ['interior','jdm','aero','fxFlame','heatFlames','lights'])if(c[name])c[name].visible=false;for(const m of c.detailWheels||[])m.visible=false;
  c.root.traverse(o=>{if(o.isMesh)o.castShadow=false;if(o.isLight)o.visible=false;});soloCareer.rival=c;soloCareer.racers=[car1,c];return c;}
 function stopSoloRival(){const c=soloCareer.rival;if(c){disposeVehicle(c);soloCareer.rival=null;}soloCareer.racers=null;}
-function readSoloRival(dt){const c=soloCareer.rival;if(!c||!race.active)return;const ai=c.ai;ai.clock+=dt;if(ai.clock<1/20)return;const h=ai.clock;ai.clock=0;const p=race.players[1];if(!p||c.frozen||p.done||race.state!=='run'){c.inp.thr=0;c.inp.brk=1;c.inp.hb=false;return;}
- const position=racePosition(c,p),speed=Math.hypot(c.vwx,c.vwz),circuit=race.loop&&race.cps.length>2,distance=clamp(position.progress-Math.floor(p.next/race.course.length)*race.length,0,race.length),look=clamp(4+speed*.3,4,12);
- let aimDistance=distance+look,aim=pointAtRoute(race.route,circuit?aimDistance%race.length:Math.min(race.length,aimDistance));
- if(p.next%race.course.length===race.course.length-1&&aimDistance>race.length){const finish=race.course.at(-1);aim={x:finish.x+finish.tx*10,z:finish.z+finish.tz*10};}
- let nearbyBlock=false;const rx=car1.x-c.x,rz=car1.z-c.z,ahead=rx*position.tx+rz*position.tz,across=rx*(-position.tz)+rz*position.tx;
- if(ahead>0&&ahead<18&&Math.abs(across)<2.2&&Math.abs(car1.y-c.y)<2){const q=nearestRoad(aim.x,aim.z),offset=(across>=0?-1:1)*Math.min(2.2,(q?.w||5)*.4);aim={x:aim.x-position.tz*offset,z:aim.z+position.tx*offset};nearbyBlock=ahead<6;}
- const dx=aim.x-c.x,dz=aim.z-c.z,heading=Math.atan2(-dz,dx),error=Math.atan2(Math.sin(heading-c.yaw),Math.cos(heading-c.yaw));
- const steering=clamp(Math.atan2(2*L*Math.sin(error),Math.max(2,Math.hypot(dx,dz)))-c.r*.08,-P.steer*Math.PI/180,P.steer*Math.PI/180);
- c.steer+=clamp(steering-c.steer,-h*2.4,h*2.4);c.rawSteer=0;
- // Keep a close contest by changing driving pace gently, never the car's tune.
- const human=race.players[0],gap=!car1.frozen&&human&&!human.done?routeProgress(car1,human)-position.progress:0;
- const desired=gap>30?1.025:gap< -60&&routeProgress(car1,human)>80?.93:1;
- ai.pace=(ai.pace||1)+(desired-(ai.pace||1))*Math.min(1,h*.4);
- let target=85*ai.pace,braking=speed*speed/12+look;let lo=0,hi=race.route.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(race.route[m].distance<distance)lo=m;else hi=m;}
- for(let i=lo;i<race.route.length&&race.route[i].distance<distance+braking;i++)target=Math.min(target,race.route[i].speed*.96*ai.pace);
- target*=Math.sqrt(clamp(Math.min(P.gripF,P.gripR)/1.2,.45,1.2));
- const turn=Math.abs(error);target*=1-sstep(.35,1.2,turn)*.65;target=Math.max(3,target);
- if(nearbyBlock)target=Math.min(target,Math.hypot(car1.vwx,car1.vwz)+2);
- const difference=target-speed;
- // Apply the available tune; ease torque only when the driven tyres lose grip.
- const slip=Math.max(0,(c.wR*R-Math.abs(c.vx))/Math.max(8,Math.abs(c.vx))),angle=Math.abs(Math.atan2(c.vy,Math.max(3,Math.abs(c.vx))));
- ai.traction=clamp((ai.traction??1)+(slip>.18?-3.5:slip<.08?1.3:0)*h,.08,1);
- const traction=ai.traction*(1-sstep(.35,.7,slip)*.75),stability=1-sstep(.12,.45,angle)*.8;
- c.inp.thr=clamp(difference*.32+.32,0,1)*traction*stability;c.inp.brk=difference<-.8?clamp(-difference*.22,0,1):0;c.inp.clutch=false;c.inp.hb=false;
- const auto=AUTO;AUTO=true;updateAutoShift(c);AUTO=auto;
- const progress=position.progress;if(progress>ai.lastProgress+1){ai.stuck=0;ai.lastProgress=progress;}else ai.stuck+=h;
- const road=nearestRoad(c.x,c.z);if(ai.stuck>7||road&&road.d>road.w+12){recoverRaceCar(c);ai.stuck=0;ai.lastProgress=routeProgress(c,p);ai.recoveries++;}
+function soloRivalBlocker(c,tx,tz){let best=null,bestAhead=65;
+ const consider=(v,npc)=>{const ahead=(v.x-c.x)*tx+(v.z-c.z)*tz,side=Math.abs((v.x-c.x)*(-tz)+(v.z-c.z)*tx);if(ahead>0&&ahead<bestAhead&&side<4.2&&Math.abs(v.y-c.y)<2){best=v;bestAhead=ahead;}};
+ consider(car1,false);for(const v of traffic.vehicles)if(v.active)consider(v,true);for(const v of meetFleet.colliders||[])if(v.active&&(v.id===undefined||v.rendered))consider(v,true);
+ if(!best||best===car1)return car1;return {x:best.x,y:best.y,z:best.z,vwx:best.vwx??(best.fx||0)*(best.speed||0),vwz:best.vwz??(best.fz||0)*(best.speed||0),traffic:true};
 }
+function readSoloRival(dt){const c=soloCareer.rival;if(!c||!race.active)return;const ai=c.ai;ai.clock+=dt;if(ai.clock<1/30)return;const h=ai.clock;ai.clock=0;const p=race.players[1];if(!p||c.frozen||p.done||race.state!=='run'){c.inp.thr=0;c.inp.brk=1;c.inp.hb=false;return;}
+ const RC=window.RIVAL_CORE,position=racePosition(c,p),speed=Math.hypot(c.vwx,c.vwz),circuit=race.loop&&race.cps.length>2,lap=Math.floor(p.next/race.course.length);let distance=clamp(position.progress-lap*race.length,0,race.length);
+ if(ai.lap!==lap){ai.lap=lap;ai.turnDone={};ai.turn=null;ai.turnExit=null;}
+ if(ai.turnExit){ai.turnExit.clock+=h;if(p.next>ai.turnExit.next||ai.turnExit.clock>8)ai.turnExit=null;else distance=Math.max(distance,ai.turnExit.distance);}
+ if(!ai.turn&&!ai.turnExit&&!(ai.reverse>0)&&speed<11){for(const corner of ai.line.hairpins||[]){if(ai.turnDone[corner.distance]||Math.abs(distance-corner.distance)>24||Math.hypot(c.x-corner.x,c.z-corner.z)>10)continue;const angle=Math.atan2(Math.sin(corner.yaw-c.yaw),Math.cos(corner.yaw-c.yaw));if(Math.abs(angle)>1.8){ai.turn={corner,sign:Math.sign(angle),clock:0};break;}}}
+ if(ai.turn){ai.turn.clock+=h;const angle=Math.atan2(Math.sin(ai.turn.corner.yaw-c.yaw),Math.cos(ai.turn.corner.yaw-c.yaw));if(ai.turn.clock>.2&&(Math.abs(angle)<.5||ai.turn.clock>4)){ai.turnDone[ai.turn.corner.distance]=true;ai.turnExit={distance:ai.turn.corner.distance+24,next:p.next,clock:0};distance=Math.max(distance,ai.turnExit.distance);ai.turn=null;ai.offset=0;}}
+
+ const anticipation=RC.preview(ai.line,distance,speed,Math.atan2(c.vy,Math.max(3,c.vx))),look=anticipation.look,plan=anticipation.plan;
+ const aimDistance=distance+look,wrapped=circuit?aimDistance%race.length:Math.min(race.length,aimDistance),base=RC.sample(ai.line,wrapped),center=pointAtRoute(race.route,wrapped),nowCenter=pointAtRoute(race.route,distance);
+ const leadCar=soloRivalBlocker(c,position.tx,position.tz),rx=leadCar.x-c.x,rz=leadCar.z-c.z,ahead=rx*position.tx+rz*position.tz,across=rx*(-position.tz)+rz*position.tx,leadSpeed=Math.hypot(leadCar.vwx,leadCar.vwz),human=race.players[0],gap=human&&!human.done?routeProgress(car1,human)-position.progress:0;
+ const lateral=(c.x-nowCenter.x)*(-position.tz)+(c.z-nowCenter.z)*position.tx,room=Math.max(0,(base.width||5)-1.7),aligned=Math.abs(leadCar.y-c.y)<2&&(leadSpeed<3||((leadCar.vwx*position.tx+leadCar.vwz*position.tz)/leadSpeed)>.75);
+ const choice=RC.tactics({ahead,across,speed,leadSpeed,gap,room,aligned,obstacle:!!leadCar.traffic,stable:Math.abs(Math.atan2(c.vy,Math.max(3,c.vx)))<.3&&Math.abs(c.r)*speed<8.5},ai,h);ai.mode=choice.mode;
+ let desired=choice.mode==='tow'||choice.mode==='pass'||choice.nudge?clamp(lateral+choice.offset,-room,room):base.offset||0;
+ if(choice.nudge)desired=clamp(lateral+across+Math.sign(choice.offset||1)*.45,-room,room);
+ const pending=race.course[p.next%race.course.length];desired*=sstep(0,14,pending.distance-distance);
+ ai.offset=(ai.offset??lateral)+clamp(desired-(ai.offset??lateral),-h*3,h*3);
+ const tx=base.tx||position.tx,tz=base.tz||position.tz;let aim={x:base.x-tz*(ai.offset-(base.offset||0)),z:base.z+tx*(ai.offset-(base.offset||0))};
+ const roadNow=nearestRoad(c.x,c.z),edgeRisk=!!roadNow&&RC.edgeRisk(roadNow.d,roadNow.w,c.yaw,roadNow.tx,roadNow.tz,choice.mode,c.wallContact);ai.edgeRisk=edgeRisk;if(edgeRisk)aim={x:center.x,z:center.z};
+ if(!pavedSurface(aim.x,aim.z))aim={x:base.x,z:base.z};
+ if(pending.distance-distance<clamp(4+speed*.32,4,16)+6)aim={x:pending.x+pending.tx*3,z:pending.z+pending.tz*3};
+ if(p.next%race.course.length===race.course.length-1&&aimDistance>race.length){const finish=race.course.at(-1);aim={x:finish.x+finish.tx*10,z:finish.z+finish.tz*10};}
+ const dx=aim.x-c.x,dz=aim.z-c.z,heading=Math.atan2(-dz,dx),error=Math.atan2(Math.sin(heading-c.yaw),Math.cos(heading-c.yaw));
+ const beta=c.vx>3?Math.atan2(c.vy,c.vx):0,pursuit=2*Math.sin(error)/Math.max(2,Math.hypot(dx,dz)),desiredYaw=speed*pursuit;const tracking=Math.atan(L*pursuit)+clamp(beta*.65*sstep(.2,.5,Math.abs(beta)),-.32,.32)+clamp((desiredYaw-c.r)*.08,-.15,.15),turnBlend=sstep(1.8,2.6,Math.abs(error))*(1-sstep(5,12,speed)),recovery=RC.recoverSteer(tracking*(1-turnBlend)+(error*1.1-c.r*.15)*turnBlend,c.vx,c.vy,c.r,A),steering=clamp(recovery.angle,-P.steer*Math.PI/180,P.steer*Math.PI/180);const steerRate=recovery.rate;c.steer+=clamp(steering-c.steer,-h*steerRate,h*steerRate);c.rawSteer=0;
+ let target=plan.speed;
+ // Braking is already distance-aware in the cached profile: do not brake twice.
+ // The shared 40% catch-up supplies acceleration; retain this corner braking envelope.
+ if(choice.nudge)target=Math.min(target,leadSpeed+4);if(edgeRisk)target=Math.min(target,12);
+ if(ahead>0&&ahead<4&&Math.abs(across)<1.7&&room<1.9)target=Math.min(target,leadSpeed+1);
+ target*=1-smoothTurnError(error);ai.targetSpeed=target;ai.assistLimit=target;
+ const difference=target-speed,slip=Math.max(0,(c.wR*R-Math.abs(c.vx))/Math.max(8,Math.abs(c.vx))),angle=Math.abs(Math.atan2(c.vy,Math.max(3,Math.abs(c.vx))));
+
+ ai.traction=clamp((ai.traction??1)+(slip>.18?-3.5:slip<.08?1.3:0)*h,P.hp>400?.16:.08,1);
+ const traction=ai.traction*(P.hp>400?1-sstep(.7,2,slip)*.5:1-sstep(.35,.7,slip)*.75),stability=1-sstep(.16,.6,angle)*.75;
+ c.inp.thr=Math.max(clamp(difference*.36+.36,0,1)*traction*stability,speed<4&&difference>1&&c.gear===1?.26:0);c.inp.brk=difference<-.8?clamp(-difference*.20,0,1):0;c.inp.clutch=false;c.inp.hb=false;
+ ai.stabilize=Math.max(0,(ai.stabilize||0)-h);if(recovery.recovering)ai.stabilize=.35;
+ if(ai.stabilize>0&&!ai.turn){c.inp.brk=Math.min(c.inp.brk,RC.recoveryBrake(c.vx,c.vy,c.r,A,c.steer));c.inp.thr=Math.min(c.inp.thr,.22);ai.assistLimit=0;ai.mode='stabilize';}
+ ai.reverseCooldown=Math.max(0,(ai.reverseCooldown||0)-h);ai.reverse=Math.max(0,(ai.reverse||0)-h);
+ if(!ai.turn&&ai.stuck>1.2&&speed<1.2&&ai.reverseCooldown<=0){ai.reverse=1.05;ai.rejoins=(ai.rejoins||0)+1;ai.reverseCooldown=4.5;c.gear=-1;c.shiftT=.14;c.driveBlend=0;c.cutT=0;}
+ if(ai.reverse>0){c.inp.thr=.38;c.inp.brk=0;c.steer=-Math.sign(error)*Math.min(.5,P.steer*Math.PI/180);ai.mode='rejoin';}
+ else if(c.gear<0){c.gear=1;c.shiftT=.14;c.driveBlend=0;c.cutT=0;}
+ if(ai.turn){ai.assistLimit=Math.min(ai.assistLimit,6);ai.mode='hairpin';c.steer=ai.turn.sign*P.steer*Math.PI/180*.95;c.rawSteer=ai.turn.sign;c.inp.thr=speed<5?.38:.16;c.inp.brk=clamp((speed-6)*.4,0,1);c.inp.hb=ai.turn.clock<.16&&speed>5;}
+ const auto=AUTO;AUTO=true;if(ai.reverse>0){}else if(speed<6&&c.gear>1&&c.shiftCooldown<=0)shift(c,-1);else if(c.gear<P.gears&&c.shiftCooldown<=0&&slip>.22&&c.rpm>P.redline*.78&&speed>8&&speed/R*Math.abs(ratioOf(c.gear))*RAD2RPM>Math.max(2800,P.spoolRPM+700)&&speed/R*Math.abs(ratioOf(c.gear+1))*RAD2RPM>Math.max(1400,P.spoolRPM*.7))shift(c,1);else updateAutoShift(c);AUTO=auto;
+ if(ai.turn||ai.turnExit)ai.stuck=0;else if(position.progress>ai.lastProgress+1){ai.stuck=0;ai.lastProgress=position.progress;}else ai.stuck+=h;
+ const road=nearestRoad(c.x,c.z);if(ai.stuck>7||road&&road.d>road.w+12){recoverRaceCar(c);ai.stuck=0;ai.lastProgress=routeProgress(c,p);ai.recoveries++;ai.offset=0;}
+}
+function smoothTurnError(error){return sstep(.8,1.5,Math.abs(error))*.45;}
+
 function renderSoloRival(dt){const c=soloCareer.rival;if(c){updVisual(c,dt);c.hit=0;c.land=0;for(const name of ['interior','jdm','aero','fxFlame','heatFlames','lights'])if(c[name])c[name].visible=false;}}
 function ghostHash(key){let h=2166136261;for(let i=0;i<key.length;i++)h=Math.imul(h^key.charCodeAt(i),16777619);return (h>>>0).toString(16);}
 function stopSoloGhost(){if(soloCareer.ghost){disposeVehicle(soloCareer.ghost);soloCareer.ghost=null;}soloCareer.record=null;}

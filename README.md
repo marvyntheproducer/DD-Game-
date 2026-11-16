@@ -1,4 +1,4 @@
-# Drift Drive V6.1 — After Hours
+# Drift Drive V6.3 — Earlier Corners
 
 A Three.js / Web Audio driving game with free roam, local split-screen, engine
 swaps, drift tuning, and custom road races. Locations are fictional and inspired
@@ -508,3 +508,22 @@ See [CAREER.md](CAREER.md) for the player guide and hardware play-test checklist
 - Actual-stage loading progress, a lightweight car graphic, a career tip, reduced-motion support and a CSP-compatible retry button.
 
 See CAREER.md for controls and target-machine play tests. Existing career saves carry forward.
+
+
+## V6.1.1 — Junction waypoint repair
+
+A short side-arm waypoint near a branching junction is normalized to the junction when both neighbouring route legs would enter and immediately leave that same arm. This prevents accidental checkpoint detours and U-turns. Same-road, repeated-destination, distant and explicitly marked turnaround routes are preserved. This patch does not change the AI controller; its next redesign is planned separately.
+
+
+## V6.2 — Pro Rival
+
+The solo rival builds its own grip-aware corner line, separate from the optional displayed racing line. It computes one braking envelope and chooses live attack, chase, tow, pass, pressure and rejoin actions at 30 Hz. Nearby traffic and rendered parked cars feed the same avoidance planner. Passing uses a committed side; tyre-slip control, short shifting, yaw feedback, high-angle countersteering and a road-edge margin adapt the driver to the current tune. There is no holding-back multiplier when it leads. Drafting uses the existing 60 m wake and acceleration system. Pressure can produce ordinary physical contact with a bounded approach speed and cooldown. Sharp junction turns use a committed physical hairpin flick and a chosen exit; low-speed obstructions trigger a short reverse/rejoin manoeuvre before a penalized recovery. Local corner margins are calibrated from offline overrun/barrier incidents, rather than slowing the whole map.
+
+Development qualification runs the actual physics offline. `npm run ai:qualify` drives every road both ways and every ordered junction approach/exit pair; it does not run during play. This is a physics-calibrated planner, not a neural model trained inside the app. The normal automated suite also drives all career rival routes, Quick Race presets, the two-lap mountain course and two 600 hp drift cases. Native competitive feel still needs hands-on play testing.
+
+V6.1.1's junction waypoint repair is included. Alt-click in the builder explicitly retains an intended near-junction turnaround.
+
+
+## V6.3 — Earlier corners and solo catch-up
+
+The rival previews farther ahead at speed, starts steering for corners earlier, uses slide-aware preview and front-tyre-flow countersteering against growing rotation, and suppresses new pressure nudges while already sliding hard. During spin recovery it briefly eases the front brake and throttle, allowing lateral tyre grip to catch the rotation before resuming acceleration. The 40% race catch-up now uses the actual race participant list in solo as well as split screen, so either trailing human or bot receives it and the role switches after an overtake. A 100 km/h leader yields a 140 km/h target after the existing 1.6-second ramp. The bot's extra acceleration is limited by its planned corner/stability speed; the controller does not brake against the straight-line boost. Human assists and the 400 km/h assist ceiling remain unchanged.
