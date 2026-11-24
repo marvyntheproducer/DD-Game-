@@ -1,4 +1,4 @@
-# Drift Drive V6.3 — Earlier Corners
+# Drift Drive V6.4 — Flow Driver
 
 A Three.js / Web Audio driving game with free roam, local split-screen, engine
 swaps, drift tuning, and custom road races. Locations are fictional and inspired
@@ -527,3 +527,9 @@ V6.1.1's junction waypoint repair is included. Alt-click in the builder explicit
 ## V6.3 — Earlier corners and solo catch-up
 
 The rival previews farther ahead at speed, starts steering for corners earlier, uses slide-aware preview and front-tyre-flow countersteering against growing rotation, and suppresses new pressure nudges while already sliding hard. During spin recovery it briefly eases the front brake and throttle, allowing lateral tyre grip to catch the rotation before resuming acceleration. The 40% race catch-up now uses the actual race participant list in solo as well as split screen, so either trailing human or bot receives it and the role switches after an overtake. A 100 km/h leader yields a 140 km/h target after the existing 1.6-second ramp. The bot's extra acceleration is limited by its planned corner/stability speed; the controller does not brake against the straight-line boost. Human assists and the 400 km/h assist ceiling remain unchanged.
+
+## V6.4 — Flow Driver
+
+The rival tracks a continuous racing line through the full checkpoint opening instead of repeatedly snapping back to gate centres. Very sharp joins retain a short exit-gate guide so the full turn is completed. Its steering controller requests the yaw rate needed for that line, estimates rear tyre force and weight transfer, then inverts the same tyre curve used by the vehicle to choose front steering. Force requests saturate below the tyre peak instead of routinely demanding full steering lock. A bounded slide may keep its normal corner throttle while angle growth, yaw tracking and road clearance show a useful exit; growing spin still triggers recovery. Obsolete map-local speed caps have been removed; the grip-aware braking envelope remains. Existing recovery countersteer, hairpin/rejoin handling and the shared 40% catch-up remain active.
+
+`npm run ai:qualify` evaluates every road in both directions and every ordered junction route using the actual physics. It now also reports average sampled bend speed, accumulated steering movement and high-angle spin time per route. `npm test` checks V6.3-relative pace and steering smoothness on city, coast and highland reference races, plus the existing high-power, multi-lap and boosted-rival cases. These offline checks do not add runtime work; live planning stays at 30 Hz with one opponent.
