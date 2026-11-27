@@ -20,7 +20,7 @@ Only one engine configuration is enabled. The original simulator UI, graphics de
 - `tools/engine-runtime/README.md`: full source provenance, scope, build and performance notes.
 - `tools/engine-runtime/runtime.cpp`, `vendor/`, `upstream-adaptation.patch`: live core and documented adaptations.
 - `Drift Drive/engine-sim/`: compiled core, dedicated Worker and PCM AudioWorklet.
-- `Drift Drive/live-engine-audio.js`: game-side lifecycle, channel routing and fallback.
+- `Drift Drive/live-engine-audio.js`: game-side lifecycle, channel routing and live recovery.
 - `scripts/bundle-game-modules.mjs`: keeps canonical adapters bundled in HTML for the existing direct-file launch path. Run `npm run game:bundle` after adapter edits.
 
 Original source: https://github.com/ange-yaghi/engine-sim . Portable checkpoint: Talhasarac/engine-sim-sound-exporter `a548360a33c6ddcc28265ac08b71b8a5f514ed3c`. Minimal solver interfaces: `e009f4ff1c9c4c5874e865e893cdb62e208fb2b3`. Preserve all MIT notices.

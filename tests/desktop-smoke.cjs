@@ -27,7 +27,10 @@ let win;
   html=html.replace('\n</script>\n</body>',`\nwindow.__DD_SMOKE={startMode,setSplit,setSoloGraphics,openMainMenu,createAnalyser:(slot=0)=>{const a=AC.createAnalyser();a.fftSize=2048;cars[slot].au.engBus.connect(a);window.__DD_ANALYSER=a;},measure:()=>{const a=window.__DD_ANALYSER;if(!a)return 0;const d=new Float32Array(a.fftSize);a.getFloatTimeDomainData(d);return Math.sqrt(d.reduce((s,v)=>s+v*v,0)/d.length);},snapshot:()=>({ready:window.gameReady,started,split,live:liveEngine&&{ready:liveEngine.ready,failed:liveEngine.failed,phase:liveEngine.phase,quality:liveEngine.quality,error:liveEngine.error,stats:liveEngine.stats},context:AC?.state,sampleRate:AC?.sampleRate,cars:cars.map(c=>({model:c.root.userData.model,detail:c.root.userData.detail,slot:c.playerSlot,audio:!!c.au,recordedLayers:c.au?.layers??null,wheels:c.wheels.length})),modelTriangles:renderer.info.render.triangles,draws:renderer.info.render.calls})};\n</script>\n</body>`);
   const bytes=Buffer.from(makeDesktopHTML(html));
   protocol.handle('drift',request=>new URL(request.url).pathname==='/index.html'?new Response(bytes,{headers:{'Content-Type':'text/html; charset=utf-8'}}):assetResponse(game,request));
-  win=new BrowserWindow({width:1280,height:800,show:true,webPreferences:{offscreen:true,nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
+  // CI has a software GPU. Bound its pixel/CPU budget so graphics emulation does
+  // not starve the real-time audio worker. Production rendering is unchanged.
+  win=new BrowserWindow({width:640,height:400,show:true,webPreferences:{offscreen:true,nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
+  win.webContents.setFrameRate(15);
   win.webContents.on('console-message',(_event,level,message)=>{if(typeof level==='object'){message=level.message;level=level.level;}if(level===3||level==='error')errors.push(message);console.log('GAME:',message);});
   win.webContents.on('render-process-gone',(_event,details)=>{throw new Error('Renderer stopped: '+details.reason);});
   installGameSession(session.defaultSession);
@@ -42,10 +45,15 @@ let win;
   await delay(1500);let solo=await evaluate('window.__DD_SMOKE.snapshot()');console.log('SOLO',JSON.stringify(solo));
   assert.equal(solo.live?.ready,true);assert.equal(solo.live?.failed,false);assert.equal(solo.context,'running');assert.equal(solo.sampleRate,44100);if(process.env.DD_SMOKE_LOW_POWER==='1')assert.ok(solo.live.quality>=1);assert.equal(solo.cars[0].wheels,4);assert.match(solo.cars[0].model,/approved blueprint/);assert.equal(solo.cars[0].recordedLayers,null);
   if(process.env.DD_SMOKE_RETRY==='1')assert.ok((await evaluate('window.__DD_FAIL_COUNT'))>=2,'a new real worker should start after the injected failure');
-  const rms=await evaluate('window.__DD_SMOKE.measure()');assert.ok(rms>.0001,'engine output should be audible');
+  const audible=async(slot)=>{
+    await evaluate(`window.__DD_SMOKE.createAnalyser(${slot})`);
+    let sounding=0;for(let i=0;i<12;i++){await delay(150);if((await evaluate('window.__DD_SMOKE.measure()'))>.0001)sounding++;}
+    assert.ok(sounding>=8,`player ${slot+1} needs sustained audible live output (${sounding}/12 samples)`);
+  };
+  await audible(0);
   await evaluate('window.__DD_SMOKE.startMode(true)');await delay(5000);
   const split=await evaluate('window.__DD_SMOKE.snapshot()');console.log('SPLIT',JSON.stringify(split));assert.equal(split.split,true);assert.equal(split.live?.ready,true);assert.equal(split.live?.failed,false);assert.equal(split.cars.length,2);assert.ok(split.cars.every(c=>c.audio));assert.equal(split.cars[0].detail,false);assert.ok(split.cars.every(c=>c.recordedLayers===null));
-  await evaluate('window.__DD_SMOKE.createAnalyser(1)');await delay(500);assert.ok((await evaluate('window.__DD_SMOKE.measure()'))>.0001,'player two needs its own audible live engine');
+  await audible(1);
   await evaluate('window.__DD_SMOKE.openMainMenu()');await delay(300);assert.equal((await evaluate('window.__DD_SMOKE.snapshot()')).context,'suspended');
   await evaluate('window.__DD_SMOKE.startMode(false)');await delay(1500);const resumed=await evaluate('window.__DD_SMOKE.snapshot()');assert.equal(resumed.live.ready,true);assert.equal(resumed.live.failed,false);assert.equal(resumed.cars.length,1);
   assert.deepEqual(errors,[]);console.log('PASS: offline Electron model, live WASM, AudioWorklet, audible output and split-screen smoke test.');app.exit(0);
