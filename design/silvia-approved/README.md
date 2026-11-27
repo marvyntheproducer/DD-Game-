@@ -2,7 +2,7 @@
 
 Marvyn approved this exact model on 27 November 2026 and authorized integration into the game. This folder preserves the approved source and renders for that integration.
 
-**Status: approved asset, not yet integrated into gameplay.** The live engine simulator is also pending. See [the development handover](../../docs/DEVELOPMENT_HANDOVER.md).
+**Status: integrated into gameplay in V6.5.** Runtime LODs are derived from this source; the live 2JZ simulator is integrated as well. See [the development handover](../../docs/DEVELOPMENT_HANDOVER.md).
 
 - `Silvia_Blueprint_Model_Files.zip` contains the GLB, editable Blender scene, deterministic generator, supplied blueprint, material metadata, checksum and Third Party licence.
 - `Silvia_Approval_Sheet.png` shows the approved multi-angle renders.

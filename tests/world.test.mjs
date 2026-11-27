@@ -302,10 +302,10 @@ test('traffic is bounded, yields to players, and disables itself on slow frames'
   g.traffic.timer=0;const before=g.traffic.aiSteps;for(let i=0;i<60;i++)g.updateTraffic(1/60);
   assert.ok(g.traffic.aiSteps-before>=9&&g.traffic.aiSteps-before<=10);g.setStarted(false);
 });
-test('S14 inspired body uses coupe proportions with bounded geometry',()=>{
+test('approved Silvia uses blueprint geometry with a laptop LOD',()=>{
   const c=g.cars[0];assert.match(c.root.userData.model,/S14/);const d=c.root.userData.dimensions;
-  assert.ok(d.length>4.4&&d.length<4.6);let triangles=0;c.root.traverse(o=>{if(o.isMesh)triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;});
-  assert.ok(triangles<18000);
+  assert.ok(d.length>4.6&&d.length<4.8);let triangles=0;c.root.traverse(o=>{if(o.isMesh)triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;});
+  assert.ok(triangles<130000);assert.equal(c.root.userData.approvedSilvia,true);
 });
 
 test('arcade menu selects both modes and freezes the run while paused',()=>{
@@ -512,7 +512,7 @@ test('V5 garage contains only four JDM legends with distinct finite body geometr
     const c=g.makeCar(g.JDM_CARS[id].color,{},id,0);let triangles=0;
     c.root.traverse(o=>{if(o.isMesh){assert.ok(o.geometry.attributes.position.array.every(Number.isFinite));triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;}});
     c.root.traverse(o=>{if(o.isMesh&&o.material===c.paint){assert.ok(o.geometry.attributes.color);assert.equal(o.geometry.attributes.color.count,o.geometry.attributes.position.count);}});
-    assert.equal(c.carId,id);assert.ok(c.factorySpoiler);assert.ok(c.frontPlate);assert.ok(triangles<18000);counts.push(triangles);g.scene.remove(c.root);
+    assert.equal(c.carId,id);assert.ok(c.factorySpoiler);assert.ok(c.frontPlate);assert.ok(triangles<(id==='s14'?130000:18000));counts.push(triangles);g.scene.remove(c.root);
   }
   assert.equal(new Set(counts).size,4);assert.ok(g.ENGINE_PROFILES[g.JDM_CARS.fd.engine]);assert.equal(g.selectVehicle(0,'toString'),false);
 });

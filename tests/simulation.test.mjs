@@ -6,9 +6,9 @@ import vm from 'node:vm';
 const html=fs.readFileSync(new URL('../Drift Drive/index.html',import.meta.url),'utf8');
 const source=html.split('// BEGIN SIMULATION\n')[1].split('// END SIMULATION')[0];
 const {advancePhysics,updateGroundContact,PHYSICS_STEP,MAX_STEPS}=vm.runInNewContext(source+'\n({advancePhysics,updateGroundContact,PHYSICS_STEP,MAX_STEPS})');
-test('startup has no local ES module dependencies',()=>{
+test('startup has no local ES module dependencies and preserves the pinned Three import map',()=>{
   const imports=[...html.matchAll(/^import .*?from ['"]([^'"]+)['"]/gm)].map(m=>m[1]);
-  assert.ok(imports.length>0);assert.ok(imports.every(path=>!path.startsWith('.')));
+  assert.ok(imports.length>0);assert.ok(imports.every(path=>!path.startsWith('.')));assert.ok(imports.includes('three'));assert.ok(html.includes('three@0.160.0'));
 });
 const car=()=>({y:5,vyv:0,contact:1,gPrev:5,land:0});
 test('road seams never generate an upward launch',()=>{

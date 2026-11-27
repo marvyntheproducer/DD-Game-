@@ -1,0 +1,351 @@
+--- upstream/include/constants.h
++++ vendor/include/constants.h
+@@ -3,10 +3,10 @@
+ 
+ namespace constants {
+ 
+-    extern constexpr double pi = 3.14159265359;
+-    extern constexpr double R = 8.31446261815324;
+-    extern constexpr double root_2 = 1.41421356237309504880168872420969807856967187537694807317667973799;
+-    extern constexpr double e = 2.71828182845904523536028747135266249775724709369995;
++    inline constexpr double pi = 3.14159265359;
++    inline constexpr double R = 8.31446261815324;
++    inline constexpr double root_2 = 1.41421356237309504880168872420969807856967187537694807317667973799;
++    inline constexpr double e = 2.71828182845904523536028747135266249775724709369995;
+ 
+ } /* namespace Constants */
+ 
+--- upstream/include/gas_system.h
++++ vendor/include/gas_system.h
+@@ -10,9 +10,8 @@
+ class GasSystem {
+     public:
+         struct Mix {
+-            double p_fuel = 0.0;
+-            double p_inert = 1.0;
+-            double p_o2 = 0.0;
++            double p_fuel, p_inert, p_o2;
++            Mix(double fuel=0, double inert=1, double o2=0): p_fuel(fuel), p_inert(inert), p_o2(o2) {}
+         };
+ 
+         struct State {
+--- upstream/include/intake.h
++++ vendor/include/intake.h
+@@ -51,6 +51,8 @@
+         inline double getPlenumCrossSectionArea() const { return m_crossSectionArea; }
+         inline double getVelocityDecay() const { return m_velocityDecay; }
+ 
++        // DD: game turbo/load supplies manifold inlet pressure.
++        double supplyPressure = units::pressure(1.0, units::atm);
+         GasSystem m_system;
+         double m_throttle;
+ 
+--- upstream/include/ring_buffer.h
++++ vendor/include/ring_buffer.h
+@@ -46,7 +46,7 @@
+     }
+ 
+     inline void overwrite(T_Data data, size_t index) {
+-        if (start + index < m_capacity) {
++        if (m_start + index < m_capacity) {
+             m_buffer[m_start + index] = data;
+         }
+         else {
+--- upstream/include/units.h
++++ vendor/include/units.h
+@@ -5,93 +5,93 @@
+ 
+ namespace units {
+     // Force
+-    extern constexpr double N = 1.0;
++    inline constexpr double N = 1.0;
+ 
+-    extern constexpr double lbf = N * 4.44822;
++    inline constexpr double lbf = N * 4.44822;
+ 
+     // Mass
+-    extern constexpr double kg = 1.0;
+-    extern constexpr double g = kg / 1000.0;
++    inline constexpr double kg = 1.0;
++    inline constexpr double g = kg / 1000.0;
+ 
+-    extern constexpr double lb = 0.45359237 * kg;
++    inline constexpr double lb = 0.45359237 * kg;
+ 
+     // Distance
+-    extern constexpr double m = 1.0;
+-    extern constexpr double cm = m / 100.0;
+-    extern constexpr double mm = m / 1000.0;
+-    extern constexpr double km = m * 1000.0;
++    inline constexpr double m = 1.0;
++    inline constexpr double cm = m / 100.0;
++    inline constexpr double mm = m / 1000.0;
++    inline constexpr double km = m * 1000.0;
+ 
+-    extern constexpr double inch = cm * 2.54;
+-    extern constexpr double foot = inch * 12.0;
+-    extern constexpr double thou = inch / 1000.0;
+-    extern constexpr double mile = m * 1609.344;
++    inline constexpr double inch = cm * 2.54;
++    inline constexpr double foot = inch * 12.0;
++    inline constexpr double thou = inch / 1000.0;
++    inline constexpr double mile = m * 1609.344;
+ 
+     // Time
+-    extern constexpr double sec = 1.0;
+-    extern constexpr double minute = 60 * sec;
+-    extern constexpr double hour = 60 * minute;
++    inline constexpr double sec = 1.0;
++    inline constexpr double minute = 60 * sec;
++    inline constexpr double hour = 60 * minute;
+ 
+     // Torque
+-    extern constexpr double Nm = N * m;
+-    extern constexpr double ft_lb = foot * lbf;
++    inline constexpr double Nm = N * m;
++    inline constexpr double ft_lb = foot * lbf;
+ 
+     // Power
+-    extern constexpr double W = Nm / sec;
+-    extern constexpr double kW = W * 1000.0;
+-    extern constexpr double hp = 745.699872 * W;
++    inline constexpr double W = Nm / sec;
++    inline constexpr double kW = W * 1000.0;
++    inline constexpr double hp = 745.699872 * W;
+ 
+     // Volume
+-    extern constexpr double m3 = 1.0;
+-    extern constexpr double cc = cm * cm * cm;
+-    extern constexpr double mL = cc;
+-    extern constexpr double L = mL * 1000.0;
+-    extern constexpr double cubic_feet = foot * foot * foot;
+-    extern constexpr double cubic_inches = inch * inch * inch;
+-    extern constexpr double gal = 3.785411784 * L;
++    inline constexpr double m3 = 1.0;
++    inline constexpr double cc = cm * cm * cm;
++    inline constexpr double mL = cc;
++    inline constexpr double L = mL * 1000.0;
++    inline constexpr double cubic_feet = foot * foot * foot;
++    inline constexpr double cubic_inches = inch * inch * inch;
++    inline constexpr double gal = 3.785411784 * L;
+ 
+     // Molecular
+-    extern constexpr double mol = 1.0;
+-    extern constexpr double kmol = mol / 1000.0;
+-    extern constexpr double mmol = mol / 1000000.0;
+-    extern constexpr double lbmol = mol * 453.59237;
++    inline constexpr double mol = 1.0;
++    inline constexpr double kmol = mol / 1000.0;
++    inline constexpr double mmol = mol / 1000000.0;
++    inline constexpr double lbmol = mol * 453.59237;
+ 
+     // Flow-rate (moles)
+-    extern constexpr double mol_per_sec = mol / sec;
+-    extern constexpr double scfm = 0.002641 * lbmol / minute;
++    inline constexpr double mol_per_sec = mol / sec;
++    inline constexpr double scfm = 0.002641 * lbmol / minute;
+ 
+     // Area
+-    extern constexpr double m2 = 1.0;
+-    extern constexpr double cm2 = cm * cm;
++    inline constexpr double m2 = 1.0;
++    inline constexpr double cm2 = cm * cm;
+ 
+     // Pressure
+-    extern constexpr double Pa = 1.0;
+-    extern constexpr double kPa = Pa * 1000.0;
+-    extern constexpr double MPa = Pa * 1000000.0;
+-    extern constexpr double atm = 101.325 * kPa;
++    inline constexpr double Pa = 1.0;
++    inline constexpr double kPa = Pa * 1000.0;
++    inline constexpr double MPa = Pa * 1000000.0;
++    inline constexpr double atm = 101.325 * kPa;
+ 
+-    extern constexpr double mbar = Pa * 100.0;
+-    extern constexpr double bar = mbar * 1000.0;
++    inline constexpr double mbar = Pa * 100.0;
++    inline constexpr double bar = mbar * 1000.0;
+ 
+-    extern constexpr double psi = lbf / (inch * inch);
+-    extern constexpr double psig = psi;
+-    extern constexpr double inHg = Pa * 3386.3886666666713;
+-    extern constexpr double inH2O = inHg * 0.0734824;
++    inline constexpr double psi = lbf / (inch * inch);
++    inline constexpr double psig = psi;
++    inline constexpr double inHg = Pa * 3386.3886666666713;
++    inline constexpr double inH2O = inHg * 0.0734824;
+ 
+     // Temperature
+-    extern constexpr double K = 1.0;
+-    extern constexpr double K0 = 273.15;
+-    extern constexpr double C = K;
+-    extern constexpr double F = (5.0 / 9.0) * K;
+-    extern constexpr double F0 = -459.67;
++    inline constexpr double K = 1.0;
++    inline constexpr double K0 = 273.15;
++    inline constexpr double C = K;
++    inline constexpr double F = (5.0 / 9.0) * K;
++    inline constexpr double F0 = -459.67;
+ 
+     // Energy
+-    extern constexpr double J = 1.0;
+-    extern constexpr double kJ = J * 1000;
+-    extern constexpr double MJ = J * 1000000;
++    inline constexpr double J = 1.0;
++    inline constexpr double kJ = J * 1000;
++    inline constexpr double MJ = J * 1000000;
+ 
+     // Angles
+-    extern constexpr double rad = 1.0;
+-    extern constexpr double deg = rad * (constants::pi / 180);
++    inline constexpr double rad = 1.0;
++    inline constexpr double deg = rad * (constants::pi / 180);
+ 
+     // Conversions
+     inline constexpr double distance(double v, double unit) {
+--- upstream/solver/include/scs.h
++++ vendor/solver/include/scs.h
+@@ -1,28 +1,5 @@
+-#ifndef ATG_SIMPLE_2D_CONSTRAINT_SOLVER_SCS_H
+-#define ATG_SIMPLE_2D_CONSTRAINT_SOLVER_SCS_H
+-
+-#include "generic_rigid_body_system.h"
+-#include "optimized_nsv_rigid_body_system.h"
+-
+-#include "euler_ode_solver.h"
+-#include "rk4_ode_solver.h"
+-#include "nsv_ode_solver.h"
+-
+-#include "gauss_seidel_sle_solver.h"
+-#include "gaussian_elimination_sle_solver.h"
+-#include "conjugate_gradient_sle_solver.h"
+-
+-#include "static_force_generator.h"
+-#include "gravity_force_generator.h"
+-#include "spring.h"
+-#include "constant_speed_motor.h"
+-
+-#include "fixed_position_constraint.h"
+-#include "link_constraint.h"
++// DD: only the body/state interfaces used by the combustion core.
++#pragma once
++#include "rigid_body.h"
++#include "force_generator.h"
+ #include "line_constraint.h"
+-#include "rolling_constraint.h"
+-#include "constant_rotation_constraint.h"
+-#include "clutch_constraint.h"
+-#include "rotation_friction_constraint.h"
+-
+-#endif /* ATG_SIMPLE_2D_CONSTRAINT_SOLVER_SCS_H */
+--- upstream/src/combustion_chamber.cpp
++++ vendor/src/combustion_chamber.cpp
+@@ -401,46 +401,5 @@
+     m_pressure[i] = m_system.pressure();
+ }
+ 
+-void CombustionChamber::apply(atg_scs::SystemState *system) {
+-    CylinderBank *bank = m_head->getCylinderBank();
+-    const double area = (bank->getBore() * bank->getBore() / 4.0) * constants::pi;
+-    const double v_x = system->v_x[m_piston->m_body.index];
+-    const double v_y = system->v_y[m_piston->m_body.index];
+-
+-    const double v_s =
+-        v_x * bank->getDx() + v_y * bank->getDy();
+-
+-    const double pressureDifferential = m_system.pressure() - m_crankcasePressure;
+-    const double force = -area * pressureDifferential;
+-
+-    if (std::isnan(force) || std::isinf(force)) {
+-        assert(false);
+-    }
+-
+-    constexpr double limit = 1E-3;
+-    const double abs_v_s = std::fmin(std::abs(v_s), limit);
+-    const double attenuation = abs_v_s / limit;
+-
+-    const double F = calculateFrictionForce(v_s) * attenuation;
+-    const double F_fric = (v_s > 0)
+-        ? -F
+-        : F;
+-
+-    system->applyForce(
+-        0.0,
+-        0.0,
+-        (force + F_fric) * bank->getDx(),
+-        (force + F_fric) * bank->getDy(),
+-        m_piston->m_body.index);
+-}
+-
+-double CombustionChamber::getFrictionForce() const {
+-    CylinderBank *bank = m_head->getCylinderBank();
+-    const double v_x = m_piston->m_body.v_x;
+-    const double v_y = m_piston->m_body.v_y;
+-
+-    const double v_s =
+-        v_x * bank->getDx() + v_y * bank->getDy();
+-
+-    return calculateFrictionForce(v_s);
+-}
++// DD: pressure creates sound, not forces in a duplicate vehicle solver.
++void CombustionChamber::apply(atg_scs::SystemState *) {}
+--- upstream/src/connecting_rod.cpp
++++ vendor/src/connecting_rod.cpp
+@@ -1,4 +1,4 @@
+-#include "..\include\connecting_rod.h"
++#include "../include/connecting_rod.h"
+ #include "../include/connecting_rod.h"
+ 
+ #include <cmath>
+--- upstream/src/engine.cpp
++++ vendor/src/engine.cpp
+@@ -1,10 +1,9 @@
+-#include "..\include\engine.h"
+ #include "../include/engine.h"
+ 
+ #include "../include/constants.h"
+ #include "../include/units.h"
+ #include "../include/fuel.h"
+-#include "../include/piston_engine_simulator.h"
++
+ 
+ #include <cmath>
+ #include <assert.h>
+@@ -383,17 +382,8 @@
+     return maxDepth;
+ }
+ 
+-Simulator *Engine::createSimulator(Vehicle *vehicle, Transmission *transmission) {
+-    PistonEngineSimulator *simulator = new PistonEngineSimulator;
+-    Simulator::Parameters simulatorParams;
+-    simulatorParams.systemType = Simulator::SystemType::NsvOptimized;
+-    simulator->initialize(simulatorParams);
+-
+-    simulator->loadSimulation(this, vehicle, transmission);
+-    simulator->setFluidSimulationSteps(8);
+-
+-    return static_cast<Simulator *>(simulator);
+-}
++// DD: the game supplies crank kinematics; no second vehicle/constraint simulation.
++Simulator *Engine::createSimulator(Vehicle *, Transmission *) { return nullptr; }
+ 
+ double Engine::getRpm() const {
+     if (m_crankshaftCount == 0) return 0;
+--- upstream/src/intake.cpp
++++ vendor/src/intake.cpp
+@@ -84,13 +84,13 @@
+     flowParams.direction_y = -1.0;
+     flowParams.dt = dt;
+ 
+-    m_atmosphere.reset(units::pressure(1.0, units::atm), units::celcius(25.0), fuelAirMix);
++    m_atmosphere.reset(supplyPressure, units::celcius(25.0), fuelAirMix);
+     flowParams.system_0 = &m_atmosphere;
+     flowParams.system_1 = &m_system;
+     flowParams.k_flow = flowAttenuation * m_inputFlowK;
+     m_flow = m_system.flow(flowParams);
+ 
+-    m_atmosphere.reset(units::pressure(1.0, units::atm), units::celcius(25.0), fuelMix);
++    m_atmosphere.reset(supplyPressure, units::celcius(25.0), fuelMix);
+     flowParams.system_0 = &m_atmosphere;
+     flowParams.system_1 = &m_system;
+     flowParams.k_flow = m_idleFlowK;
