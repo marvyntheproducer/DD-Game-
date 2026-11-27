@@ -18,8 +18,17 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Build the stripped Engine Simulator core
+        run: |
+          git clone --depth 1 --branch 4.0.20 https://github.com/emscripten-core/emsdk.git .engine-build/emsdk
+          .engine-build/emsdk/emsdk install 4.0.20
+          .engine-build/emsdk/emsdk activate 4.0.20
+          EMXX="$PWD/.engine-build/emsdk/upstream/emscripten/em++" npm run engine:build
+          git diff --exit-code -- "Drift Drive/engine-sim/core.js" "Drift Drive/engine-sim/core.wasm" tools/engine-runtime/build-manifest.json
       - run: npm run desktop:prepare
       - run: npm test
+      - name: Verify live audio in offline Electron
+        run: npm run desktop:smoke
   package:
     needs: verify
     strategy:

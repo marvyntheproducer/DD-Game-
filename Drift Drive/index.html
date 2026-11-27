@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Drift Drive V6.4 — After Hours</title>
+<title>Drift Drive V6.5 — After Hours</title>
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
 #hud{position:fixed;right:28px;bottom:24px;color:#fff;text-align:right;text-shadow:0 2px 6px #000a;pointer-events:auto}
@@ -58,7 +58,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:syste
 <style>#bigmap{z-index:40!important;top:40%!important}#bpanel{z-index:41}#maptoolbar{z-index:42;max-height:27vh!important} @media(max-height:760px){#overlay{justify-content:flex-start!important;padding:24px 40px!important}#overlay .arcade-logo{font-size:48px!important}#overlay .arcade-mode{padding:9px 16px!important}} #career-map-info{flex-basis:100%;background:#101a17ed;border-top:1px solid #89985c;padding:10px 14px;font:12px/1.4 system-ui;color:#e6e9d8;text-align:left}#career-map-info label{display:inline-flex;gap:8px;margin:8px 16px}#career-map-info p{margin:5px 0}.map-legend{color:#bbc3a2;font:10px monospace;margin-left:12px}#maptoolbar{flex-wrap:wrap;max-height:35vh;overflow:auto}#maptoolbar select{max-width:60vw}</style></head>
 <body>
 <div id="overlay" role="dialog" aria-label="Drift Drive main menu">
-<div class="arcade-kicker">JDM NIGHTS / AFTER HOURS / V6.4</div><div class="arcade-logo">DRIFT <span>DRIVE</span></div><div class="arcade-tag">山道 — THE ROAD IS YOURS</div>
+<div class="arcade-kicker">JDM NIGHTS / AFTER HOURS / V6.5</div><div class="arcade-logo">DRIFT <span>DRIVE</span></div><div class="arcade-tag">山道 — THE ROAD IS YOURS</div>
 <div id="ovtext">WAKING THE VALLEY</div><small id="ovsub">Preparing your drive</small>
 <section id="load-panel" aria-label="Loading the game"><div class="load-road" aria-hidden="true"><i></i></div><div id="load-track" role="progressbar" aria-label="World preparation" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="load-fill"></div></div><div class="load-meta"><span id="load-stage">WORLD PREPARATION</span><span id="load-percent">0%</span></div><p id="load-tip">Career: find a gold event on the map, drive to its start, stop and press F.</p><button id="load-retry" hidden>RETRY STARTUP</button></section>
 <div id="menu-controls"><div class="mode-grid">
@@ -7741,6 +7741,152 @@ window.addEventListener('unhandledrejection',event=>window.reportStartupError(ev
 <script type="module">
 import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+// BEGIN BUNDLED VEHICLE AUDIO MODULES
+
+const templates=new Map(),derived=new Map();
+function installSilviaTemplates(detail,laptop){
+  derived.clear();
+  for(const [level,scene] of [['detail',detail],['laptop',laptop]]){
+    scene.updateMatrixWorld(true);const meshes=new Map();
+    scene.traverse(o=>{if(o.isMesh)meshes.set(o.name,{geometry:o.geometry.clone().applyMatrix4(o.matrixWorld),material:o.material});});
+    templates.set(level,meshes);
+  }
+}
+async function preloadSilvia(){
+  if(templates.size)return;
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
+  try{
+    const loader=new GLTFLoader();
+    // Directly opened source-game folders cannot fetch local GLBs through CORS.
+    // A classic-script companion keeps that existing launch path usable.
+    if(globalThis.location?.protocol==='file:'){
+      if(!globalThis.DD_SILVIA_FILE)await new Promise((resolve,reject)=>{
+        const script=document.createElement('script');script.src=new URL('./models/silvia-file.js',document.baseURI).href;script.onload=resolve;script.onerror=()=>reject(new Error('The Silvia companion file is missing. Extract the complete game folder.'));document.head.appendChild(script);
+        controller.signal.addEventListener('abort',()=>reject(new Error('Silvia model loading timed out.')),{once:true});
+      });
+      const raw=atob(globalThis.DD_SILVIA_FILE),bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));
+      const model=(await loader.parseAsync(bytes.buffer,'')).scene;installSilviaTemplates(model,model);return;
+    }
+    const scenes=await Promise.all(['detail','laptop'].map(async level=>{
+      const response=await fetch(new URL('./models/silvia-'+level+'.glb',document.baseURI),{signal:controller.signal});
+      if(!response.ok)throw new Error('Silvia model could not load ('+response.status+').');
+      return (await loader.parseAsync(await response.arrayBuffer(),'')).scene;
+    }));installSilviaTemplates(...scenes);
+  }finally{clearTimeout(timer);}
+}
+
+function createSilviaModel(color,{A=1.18,B=1.345,R=.32,detail=true}={}){
+  if(templates.size!==2)throw new Error('Approved Silvia has not finished loading.');
+  const root=new THREE.Group(),body=new THREE.Group();root.add(body);
+  root.userData.model='Silvia approved blueprint coupe (S14 game slot)';
+  root.userData.approvedSilvia=true;
+  root.userData.dimensions={length:4.66,width:1.79,height:1.26,wheelbase:A+B};
+  const materials=new Map(),pieces=[],wheels=[],factorySpoiler=new THREE.Group(),interior=new THREE.Group();body.add(factorySpoiler,interior);
+  const source=templates.get('detail'),scaleX=(A+B)/2.52,offsetX=A-1.30*scaleX;
+  const transform=new THREE.Matrix4().makeTranslation(offsetX,0,0).multiply(new THREE.Matrix4().makeScale(-scaleX,1,-1));
+  const wheelNames=['Front left','Front right','Rear left','Rear right'];
+  for(let i=0;i<4;i++){
+    const pivot=new THREE.Group(),spin=new THREE.Group(),spokeMesh=new THREE.Group(),front=i<2;
+    // The visual track follows the approved arches. Physics track is unchanged.
+    pivot.position.set(front?A:-B,R,i%2===0?-.79:.79);pivot.add(spin);spin.add(spokeMesh);root.add(pivot);
+    wheels.push({pivot,spin,front,rimMaterial:null,spokeMesh,approved:true});
+  }
+  const plateAnchor=new THREE.Group();plateAnchor.position.set(2.291,.29,0);body.add(plateAnchor);
+  const glassShell=new THREE.Group();body.add(glassShell);
+  let paint,tailMat,headMat;
+  const materialFor=original=>{
+    const name=original.name;
+    if(!materials.has(name)){
+      const m=/Smoked automotive|Optical clear/.test(name)?new THREE.MeshStandardMaterial({color:original.color.clone(),metalness:.18,roughness:.14}):name.includes('Pearl silver')?new THREE.MeshPhysicalMaterial({color,metalness:.65,roughness:.25,clearcoat:.85}):original.clone();
+      if(name.includes('Smoked automotive')){m.transparent=true;m.opacity=.72;m.depthWrite=false;m.side=THREE.DoubleSide;}
+      if(name.includes('Red tail')){m.emissive.setHex(0xff1810);m.emissiveIntensity=.3;tailMat=m;}
+      if(name.includes('Optical clear')){m.emissive.setHex(0xc5c6b6);m.emissiveIntensity=.32;headMat=m;}
+      if(name.includes('Pearl silver'))paint=m;
+      materials.set(name,m);
+    }return materials.get(name);
+  };
+  for(const [name,entry] of source){
+    const [rawGroup,kind]=name.split('_|_');
+    const group=rawGroup.replaceAll('_',' ');
+    const wi=wheelNames.indexOf(group),wheel=wi>=0?wheels[wi]:null;
+    const geometries={};
+    for(const level of ['detail','laptop']){
+      const item=templates.get(level).get(name);if(!item)throw new Error('Silvia LOD part missing: '+name);
+      let matrix=transform;
+      if(wheel)matrix=new THREE.Matrix4().makeTranslation(-wheel.pivot.position.x,-R,-wheel.pivot.position.z).multiply(transform);
+      const key=[name,level,A,B,R].join(':');
+      if(!derived.has(key)){
+        const geometry=item.geometry.clone().applyMatrix4(matrix);
+        if(kind==='frontplate')geometry.translate(-2.291,-.29,0);
+        geometry.userData.sharedVehicleGeometry=true;derived.set(key,geometry);
+      }geometries[level]=derived.get(key);
+    }
+    const mesh=new THREE.Mesh(geometries[detail?'detail':'laptop'],materialFor(entry.material));mesh.name=name;mesh.castShadow=detail;mesh.receiveShadow=true;pieces.push({mesh,geometries});
+    if(wheel){
+      if(kind==='caliper')wheel.pivot.add(mesh);
+      else if(kind==='spokes'){wheel.spokeMesh.add(mesh);wheel.rimMaterial=mesh.material;}
+      else wheel.spin.add(mesh);
+    }else if(kind==='spoiler')factorySpoiler.add(mesh);
+    else if(kind==='interior')interior.add(mesh);
+    else if(kind==='frontplate')plateAnchor.add(mesh);
+    else if(entry.material.name.includes('Smoked automotive')){glassShell.add(mesh);glassShell.material=mesh.material;}
+    else body.add(mesh);
+
+  }
+  for(const w of wheels){w.rimMaterial=w.rimMaterial||materials.get('Machined silver spokes');w.factorySpokes=w.spokeMesh.children.slice();}
+  const shadow=new THREE.Mesh(new THREE.PlaneGeometry(4.9,1.9).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:0x080b10,transparent:true,opacity:.13,depthWrite:false}));shadow.position.y=.015;root.add(shadow);
+  root.userData.approvedInterior=interior;root.userData.seatMaterial=materials.get('Cloth interior');
+  root.userData.setDetail=on=>{for(const p of pieces){p.mesh.geometry=p.geometries[on?'detail':'laptop'];p.mesh.castShadow=on;}root.userData.detail=on;};
+  return {root,body,wheels,paint,tailMat,headMat,windowShell:glassShell,factorySpoiler,frontPlate:plateAnchor,approvedInterior:interior};
+}
+
+// Live physical engine audio with a captured-simulator fallback on unsupported devices.
+function createLiveEngineAudio(context,{onReady=()=>{},onFallback=()=>{}}={}){
+  const voices=new Map(),states=new Map();let worker,node,ready=false,failed=false,disposed=false,timer;
+  const fallback=error=>{
+    if(failed||disposed)return;failed=true;ready=false;clearTimeout(timer);worker?.terminate();node?.disconnect();
+    for(const voice of voices.values()){voice.live.gain.setTargetAtTime(0,context.currentTime,.04);voice.recorded.gain.setTargetAtTime(1,context.currentTime,.04);}
+    onFallback(error);
+  };
+  const sync=()=>{if(!worker||!node||failed)return;worker.postMessage({type:'active',slots:[...voices.keys()]});for(const [slot,value]of states)worker.postMessage({type:'state',slot,value});};
+  const manager={
+    get ready(){return ready;},get failed(){return failed;},
+    attach(slot,bus,recorded){
+      if(disposed||failed||slot<0||slot>1)return;
+      manager.detach(slot);const live=context.createGain();live.gain.value=0;live.connect(bus);voices.set(slot,{live,recorded});
+      if(node)node.connect(live,slot);if(ready){live.gain.setTargetAtTime(1,context.currentTime,.06);recorded.gain.setTargetAtTime(0,context.currentTime,.06);}sync();
+    },
+    detach(slot){const voice=voices.get(slot);if(!voice)return;if(node)try{node.disconnect(voice.live);}catch{}voice.live.disconnect();voices.delete(slot);states.delete(slot);sync();},
+    update(slot,value){if(disposed||failed)return;states.set(slot,value);if(worker&&node)worker.postMessage({type:'state',slot,value});},
+    dispose(){disposed=true;clearTimeout(timer);for(const slot of [...voices.keys()])manager.detach(slot);node?.port.postMessage({type:'stop'});node?.disconnect();worker?.terminate();}
+  };
+  (async()=>{
+    try{
+      if(!context.audioWorklet||typeof Worker==='undefined'||typeof AudioWorkletNode==='undefined')throw new Error('Live engine audio is unavailable on this device.');
+      await context.audioWorklet.addModule(new URL('./engine-sim/output-worklet.js',document.baseURI));
+      node=new AudioWorkletNode(context,'dd-engine-output',{numberOfInputs:0,numberOfOutputs:2,outputChannelCount:[1,1]});node.onprocessorerror=()=>fallback(new Error('Live engine audio stopped.'));
+      for(const [slot,voice]of voices)node.connect(voice.live,slot);
+      worker=new Worker(new URL('./engine-sim/worker.js',document.baseURI),{type:'module'});worker.onerror=()=>fallback(new Error('Live engine worker failed.'));
+      const channel=new MessageChannel();
+      worker.onmessage=({data})=>{if(data.type==='error')fallback(new Error(data.message));else if(data.type==='ready'){sync();node.port.postMessage({type:'bind',port:channel.port2},[channel.port2]);}};
+      node.port.onmessage=({data})=>{
+        if(data.type==='audible'){
+          ready=true;clearTimeout(timer);for(const voice of voices.values()){voice.live.gain.setTargetAtTime(1,context.currentTime,.06);voice.recorded.gain.setTargetAtTime(0,context.currentTime,.06);}onReady();
+        }else if(data.type==='stats'&&context.state==='running'){
+          manager.stats=data;
+          if(data.underruns>3)fallback(new Error('This device cannot keep live engine audio running smoothly.'));
+        }
+      };
+      worker.postMessage({type:'init',rate:context.sampleRate,port:channel.port1},[channel.port1]);
+      const checkStart=()=>{if(ready||failed||disposed)return;if(context.state==='suspended')timer=setTimeout(checkStart,15000);else fallback(new Error('Live engine audio took too long to start.'));};
+      timer=setTimeout(checkStart,15000);
+    }catch(error){fallback(error);}
+  })();
+  return manager;
+}
+
+// END BUNDLED VEHICLE AUDIO MODULES
 const ClipperLib=window.ClipperLib;
 // BEGIN SIMULATION
 // Keep tire integration independent of display refresh rate. At 60 Hz this is
@@ -7806,7 +7952,7 @@ const ENGINE_PROFILES={
     curve:[[0,.32],[.25,.64],[.4,.96],[.52,1],[.78,.95],[1,.70],[1.1,.48]]}
 };
 const JDM_CARS={
- s14:{name:'Nissan Silvia S14',era:'Kouki · 2JZ swap',engine:'JZ2Tour',mass:1250,color:'#dfe3e8',shape:'coupe'},
+ s14:{name:'Nissan Silvia S14',era:'Approved blueprint · 2JZ swap',engine:'JZ2Tour',mass:1250,color:'#dfe3e8',shape:'coupe'},
  r34:{name:'Nissan Skyline GT-R R34',era:'2JZ swap',engine:'JZ2Tour',mass:1480,color:'#365e9b',shape:'boxy'},
  supra:{name:'Toyota Supra A80',era:'2JZ touring build',engine:'JZ2Tour',mass:1490,color:'#d0c2a5',shape:'round'},
  fd:{name:'Mazda RX-7 FD',era:'2JZ swap',engine:'JZ2Tour',mass:1260,color:'#b8493d',shape:'low'}
@@ -8499,6 +8645,7 @@ function mergedGeometry(geometries){const positions=[],normals=[];
   for(const input of geometries){const g=input.index?input.toNonIndexed():input;positions.push(...g.attributes.position.array);if(g.attributes.normal)normals.push(...g.attributes.normal.array);}
   const out=new THREE.BufferGeometry();out.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));if(normals.length===positions.length)out.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));else out.computeVertexNormals();return out;}
 function buildCar(color,vehicle='s14'){
+  if(vehicle==='s14'){const model=createSilviaModel(color,{A,B,R,detail:!split&&soloQuality.tier===1});scene.add(model.root);return model;}
   if(vehicle!=='s14'&&Object.hasOwn(JDM_CARS,vehicle))return buildLegendaryCar(color,vehicle);
   const wheels=[],carRoot=new THREE.Group(),carBody=new THREE.Group();carRoot.add(carBody);
   carRoot.userData.model='S14 Kouki inspired coupe';carRoot.userData.dimensions={length:4.52,width:1.73,height:1.295,wheelbase:L};
@@ -8597,7 +8744,7 @@ function buildCar(color,vehicle='s14'){
 
 // Lightweight original silhouettes; common arcade chassis, not licensed OEM meshes.
 function buildLegendaryCar(color,id){
- const m=buildCar(color,'s14'),body=m.body,keep=new Set([m.paint,m.headMat,m.tailMat,m.windowShell.material]),glass=m.windowShell.material;
+ const m=buildCar(color,'legacy'),body=m.body,keep=new Set([m.paint,m.headMat,m.tailMat,m.windowShell.material]),glass=m.windowShell.material;
  const geometries=new Set(),materials=new Set();body.traverse(o=>{if(o.geometry&&!o.isSprite)geometries.add(o.geometry);if(o.material)materials.add(o.material);});
  body.clear();for(const g of geometries)g.dispose();for(const material of materials)if(!keep.has(material)){material.map?.dispose();material.dispose();}
  const dark=new THREE.MeshStandardMaterial({color:0x141d25,roughness:.46}),chrome=new THREE.MeshStandardMaterial({color:0x9eacb0,metalness:.8,roughness:.22});
@@ -9046,7 +9193,7 @@ function resetCar(c,idx){let i=idx;
 
 // ================= tuning UI =================
 function updOut(){for(const name of ['street','drift']){const button=document.getElementById('setup-'+name);button.style.borderColor=P.handling===name?'#ead09a':'#73818e';button.setAttribute?.('aria-pressed',String(P.handling===name));}
-  const [p,r,t]=estOutput();document.getElementById('tout').innerHTML=`≈ <b>${Math.round(p)} hp</b> @ ${r} rpm<br>≈ <b>${Math.round(t)} Nm</b> peak torque<br>${ENGINE_PROFILES[P.engine].name} · ${P.gears}-speed<br>${window.ENGINE_SOUNDS[P.engine]?.captured?'<small>Recorded from full Engine Simulator runs. These are simulated configurations, not real-car microphone recordings. Credits: audio/jdm/CREDITS.md.</small><br>':window.ENGINE_SOUNDS[P.engine]?.recorded?'<small>Actual car recording; playback RPM estimates are approximate. Credits: audio/jdm/CREDITS.md.</small><br>':''}<small>Engine response and tuned builds are simulated. Slide support keeps your steering input in control.</small>`;
+  const [p,r,t]=estOutput();document.getElementById('tout').innerHTML=`≈ <b>${Math.round(p)} hp</b> @ ${r} rpm<br>≈ <b>${Math.round(t)} Nm</b> peak torque<br>${ENGINE_PROFILES[P.engine].name} · ${P.gears}-speed<br>${window.ENGINE_SOUNDS[P.engine]?.captured?'<small>Live Engine Simulator combustion and exhaust audio. Simulator recordings provide a fallback on unsupported devices. Credits: audio/jdm/CREDITS.md.</small><br>':window.ENGINE_SOUNDS[P.engine]?.recorded?'<small>Actual car recording; playback RPM estimates are approximate. Credits: audio/jdm/CREDITS.md.</small><br>':''}<small>Engine response and tuned builds are simulated. Slide support keeps your steering input in control.</small>`;
   rememberEngine();try{localStorage.setItem('s14tune',JSON.stringify(P));}catch(error){console.warn('Settings could not be saved',error);}}
 function buildTune(){const list=document.getElementById('tlist');list.innerHTML='';
   const groups=[['Grip & drift',HANDLING_KEYS,true],['Power & boost',['hp','torque','boost'],false],['Gearbox',['final','g1','g2','g3','g4','g5','g6'],false],['Engine response',['redline','idle','inertia','spoolRPM','spoolRate','engineBrake'],false],['Camera & sound',['cameraEnergy','turboVolume'],false]];
@@ -9106,7 +9253,8 @@ function addSkid(c,w,p,on){
   for(let k=0;k<18;k++)skP[o+k]=v[k];skHead=(skHead+1)%SKMAX;skCount=Math.min(SKMAX,skCount+1);
   skGeo.setDrawRange(0,skCount*6);skGeo.attributes.position.needsUpdate=true;l.copy(p);}
 
-// ================= audio: recorded engine loops + turbo layer + open-air reverb/echo =================
+// ================= audio: live combustion worker + captured fallback + turbo layer + open-air reverb/echo =================
+let liveEngine=null;
 let AC=null,engBufs={},sparkBufs=[],engLoadId=0,noiseBuf=null;const AU={};
 const REFS={idle:1000,low:2800,mid:4800,high:6800};
 function b64(s){const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u.buffer;}
@@ -9122,6 +9270,7 @@ function initAudio(){if(AC)return;AC=new AudioContext();
   const eg=AC.createGain();eg.gain.value=0.04;AU.send.connect(dl);dl.connect(elp);elp.connect(fb);fb.connect(dl);elp.connect(eg);eg.connect(AU.master);
   noiseBuf=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate);const dd=noiseBuf.getChannelData(0);for(let i=0;i<dd.length;i++)dd[i]=Math.random()*2-1;
   (window.SPARK_SOUNDS||[]).forEach(s=>AC.decodeAudioData(b64(s)).then(b=>sparkBufs.push(b)).catch(e=>console.warn('Backfire sample unavailable',e)));
+  liveEngine=createLiveEngineAudio(AC,{onReady:()=>{cars.forEach(buildLayers);document.getElementById('audio-status').style.display='none';},onFallback:error=>{cars.forEach(buildLayers);console.warn(error);const status=document.getElementById('audio-status');status.textContent='Live engine unavailable on this device · using simulator recordings.';status.style.display='block';}});
   AC.resume().catch(console.warn);cars.forEach(setupCarAudio);loadEngine(P.engine);initCruiseAudio(comp);}
 // Overlap the loop seam and level-match recordings before crossfading.
 function prepareLoop(buf){
@@ -9135,8 +9284,9 @@ function prepareLoop(buf){
   for(let ch=0;ch<out.numberOfChannels;ch++){const d=out.getChannelData(ch);for(let i=0;i<d.length;i++)d[i]*=gain;}
   return out;}
 const engineCache=new Map();let engineRefs=REFS,enginePhaseLocked=false,engineDescriptors=null;
-function mkLayer(a,buf,ref){const src=AC.createBufferSource();src.buffer=buf;src.loop=true;const g=AC.createGain();g.gain.value=0;src.connect(g);g.connect(a.engBus);if((enginePhaseLocked||engineDescriptors)&&ref)src.playbackRate.value=(a.audioRPM||IDLE)/ref*.94;src.start(a.engineStart||0,enginePhaseLocked||engineDescriptors?0:Math.random()*buf.duration);return {src,g,ref,load:'any'};}
+function mkLayer(a,buf,ref){const src=AC.createBufferSource();src.buffer=buf;src.loop=true;const g=AC.createGain();g.gain.value=0;src.connect(g);g.connect(a.recordedBus);if((enginePhaseLocked||engineDescriptors)&&ref)src.playbackRate.value=(a.audioRPM||IDLE)/ref*.94;src.start(a.engineStart||0,enginePhaseLocked||engineDescriptors?0:Math.random()*buf.duration);return {src,g,ref,load:'any'};}
 function buildLayers(c){const a=c.au;if(!a)return;for(const l of [...a.layers,...(a.lim?[a.lim]:[])]){l.src.stop();l.src.disconnect();l.g.disconnect();}
+  a.layers=[];a.lim=null;if(liveEngine?.ready&&!c.isAI)return;
   a.audioRPM=clamp(c.rpm,IDLE,P.redline+300);a.engineStart=AC.currentTime+.025;
   a.layers=engineDescriptors?engineDescriptors.filter(d=>engBufs[d.key]).map(d=>Object.assign(mkLayer(a,engBufs[d.key],d.rpm),{load:d.load,key:d.key})):['idle','low','mid','high'].filter(k=>engBufs[k]).map(k=>mkLayer(a,engBufs[k],engineRefs[k]));a.lim=engBufs.limiter?mkLayer(a,engBufs.limiter,0):null;}
 async function loadEngine(name){if(!AC||!window.ENGINE_SOUNDS)return;const id=++engLoadId;
@@ -9147,7 +9297,7 @@ async function loadEngine(name){if(!AC||!window.ENGINE_SOUNDS)return;const id=++
       const buf=await AC.decodeAudioData(bytes);return [k,k==='limiter'||set.seamless?buf:prepareLoop(buf)];
     })).then(Object.fromEntries));
     const bufs=await engineCache.get(key);if(id!==engLoadId)return;
-    engineRefs={...REFS,...set.refs};enginePhaseLocked=!!set.phaseLocked;engineDescriptors=set.layers||null;engBufs=bufs;cars.forEach(buildLayers);document.getElementById('audio-status').style.display='none';
+    engineRefs={...REFS,...set.refs};enginePhaseLocked=!!set.phaseLocked;engineDescriptors=set.layers||null;engBufs=bufs;cars.forEach(buildLayers);if(!liveEngine?.failed)document.getElementById('audio-status').style.display='none';
   }catch(e){engineCache.delete(key);console.warn('Engine audio unavailable',key,e);
     if(id===engLoadId){
       const status=document.getElementById('audio-status');status.textContent='Engine sample could not load. Reapply a power build in P to retry.';status.style.display='block';}}
@@ -9155,7 +9305,7 @@ async function loadEngine(name){if(!AC||!window.ENGINE_SOUNDS)return;const id=++
 
 function setupCarAudio(c){if(!AC||c.au)return;const a={srcs:[],layers:[],lim:null,nodes:[]};
   a.pan=AC.createStereoPanner();a.out=AC.createGain();a.out.connect(a.pan);a.pan.connect(AU.master);const sd=AC.createGain();sd.gain.value=0.22;a.nodes.push(sd);a.pan.connect(sd);sd.connect(AU.send);
-  a.engBus=AC.createGain();a.engLP=AC.createBiquadFilter();a.engLP.type='lowpass';a.engLP.frequency.value=9000;a.engGain=AC.createGain();a.engGain.gain.value=0.4;
+  a.engBus=AC.createGain();a.recordedBus=AC.createGain();a.recordedBus.connect(a.engBus);a.nodes.push(a.recordedBus);a.engLP=AC.createBiquadFilter();a.engLP.type='lowpass';a.engLP.frequency.value=9000;a.engGain=AC.createGain();a.engGain.gain.value=0.4;
   a.loadGain=AC.createGain();a.coastGain=AC.createGain();a.coastLP=AC.createBiquadFilter();a.coastLP.type='lowpass';a.coastLP.frequency.value=1800;a.loadGain.gain.value=1;a.coastGain.gain.value=0;
   a.engineLow=AC.createBiquadFilter();a.engineLow.type='lowshelf';a.engineLow.frequency.value=240;a.engineLow.gain.value=3.5;
   a.engineHigh=AC.createBiquadFilter();a.engineHigh.type='highshelf';a.engineHigh.frequency.value=2400;a.engineHigh.gain.value=-3;
@@ -9163,8 +9313,8 @@ function setupCarAudio(c){if(!AC||c.au)return;const a={srcs:[],layers:[],lim:nul
   const ns=(type,f,q)=>{const s=AC.createBufferSource();s.buffer=noiseBuf;s.loop=true;const fl=AC.createBiquadFilter();fl.type=type;fl.frequency.value=f;fl.Q.value=q;const g=AC.createGain();g.gain.value=0;s.connect(fl);fl.connect(g);g.connect(a.out);s.start(0,Math.random()*1.5);a.srcs.push(s);a.nodes.push(fl,g);return {g,fl};};
   a.sq=ns('bandpass',1000,7);a.wind=ns('lowpass',450,0.7);a.hiss=ns('highpass',5500,0.7);
   a.tb=AC.createOscillator();a.tg=AC.createGain();a.tg.gain.value=0;a.tb.connect(a.tg);a.tg.connect(a.out);a.tb.start();a.srcs.push(a.tb);a.nodes.push(a.tg);
-  c.au=a;buildLayers(c);}
-function teardownCarAudio(c){const a=c.au;if(!a)return;
+  c.au=a;buildLayers(c);if(!c.isAI)liveEngine?.attach(c.playerSlot,a.engBus,a.recordedBus);}
+function teardownCarAudio(c){const a=c.au;if(!a)return;if(!c.isAI)liveEngine?.detach(c.playerSlot);
   for(const voice of a.bovVoices||[]){voice.source.stop();voice.source.disconnect();voice.hi.disconnect();voice.lo.disconnect();voice.gain.disconnect();}a.bovVoices?.clear();
   a.srcs.forEach(s=>{s.stop();s.disconnect();});
   for(const l of [...a.layers,...(a.lim?[a.lim]:[])]){l.src.stop();l.src.disconnect();l.g.disconnect();}
@@ -9212,6 +9362,7 @@ function updateBackfire(c){
 function beep(f,dur){if(!AC)return;const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime;o.frequency.value=f;g.gain.setValueAtTime(0.15,t);g.gain.exponentialRampToValueAtTime(0.001,t+dur);o.connect(g);g.connect(AU.master);o.start();o.stop(t+dur);}
 function updAudio(c,dt,spd,squeal){const a=c.au;if(!a)return;const t=AC.currentTime,targetRPM=clamp(c.rpm,IDLE,P.redline+300);a.audioRPM=a.audioRPM===undefined?targetRPM:a.audioRPM+(targetRPM-a.audioRPM)*(1-Math.exp(-dt*18));const rpm=a.audioRPM,Ls=a.layers,inp=c.inp,w=Ls.map(()=>0);
   const load=inp.clutch||c.shiftT>0?inp.thr*0.65:inp.thr;
+  if(!c.isAI){a.liveClock=(a.liveClock||0)+dt;if(a.liveClock>=1/30){a.liveClock=0;liveEngine?.update(c.playerSlot,{rpm,throttle:inp.thr,load,boost:c.spool*P.boost,cut:c.cutT>0||c.shiftT>0});}}
   if(engineDescriptors&&Ls.length){
     const refs=[...new Set(Ls.map(l=>l.ref))].sort((a,b)=>a-b);let lo=refs[0],hi=lo,f=0;
     if(rpm>=refs.at(-1))lo=hi=refs.at(-1);
@@ -9931,7 +10082,7 @@ function initCarFX(c){
   return c;
 }
 function addJDMDetails(c){
-  if(c.carId!=='s14'){c.jdm=new THREE.Group();c.body.add(c.jdm);c.detailWheels=[];return;}
+  if(c.carId!=='s14'||c.root.userData.approvedSilvia){c.jdm=new THREE.Group();c.body.add(c.jdm);c.detailWheels=[];return;}
   const group=new THREE.Group(),blackParts=[],paintParts=[],metalParts=[];
   const part=(list,x,y,z,dx,dy,dz)=>list.push(new THREE.BoxGeometry(dx,dy,dz).translate(x,y,z));
   for(const side of [-1,1]){
@@ -9951,7 +10102,7 @@ function addJDMDetails(c){
     const bolts=new THREE.Mesh(mergedGeometry(parts),new THREE.MeshStandardMaterial({color:0xbfc5c5,metalness:.85,roughness:.25}));wheel.spin.add(bolts);c.detailWheels.push(bolts);});
   updateCarDetail(c);
 }
-function updateCarDetail(c){const detail=!split&&soloQuality.tier===1;if(c.jdm)c.jdm.visible=detail;for(const m of c.detailWheels||[])m.visible=detail;if(c.interior)c.interior.visible=detail||c.camMode===3;if(c.aero)c.aero.visible=detail&&c.build?.kit==='drift';if(c.jdm)c.jdm.visible=detail&&c.build?.kit!=='stock';
+function updateCarDetail(c){const detail=!split&&soloQuality.tier===1;c.root.userData.setDetail?.(detail);if(c.jdm)c.jdm.visible=detail;for(const m of c.detailWheels||[])m.visible=detail;if(c.interior)c.interior.visible=detail||c.camMode===3;if(c.aero)c.aero.visible=detail&&c.build?.kit==='drift';if(c.jdm)c.jdm.visible=detail&&c.build?.kit!=='stock';
   updateBodyOptions(c);c.paint.envMapIntensity=detail?1.12:.85;c.paint.roughness=detail?.23:.27;c.paint.clearcoat=detail?1:.85;}
 function updateTyreHeatFX(c,dt){
   const hot=!split&&started&&c.contact&&c.tireHeat>.8&&Math.abs(c.wR*R-c.vx)>8;
@@ -10119,12 +10270,18 @@ function wheelGeometry(name){if(wheelStyleGeometry.has(name))return wheelStyleGe
   if(name==='dish')geometry=new THREE.RingGeometry(.055,.198,24);
   else{const count=name==='five'?5:6,parts=[];for(let k=0;k<count;k++)parts.push(new THREE.BoxGeometry(.17,.04,.025).translate(.10,0,0).rotateZ(k/count*Math.PI*2));geometry=mergedGeometry(parts);}
   wheelStyleGeometry.set(name,geometry);return geometry;}
-function normalizedBuild(raw={},color='#dfe3e8'){const b={paint:/^#[0-9a-f]{6}$/i.test(raw.paint)?raw.paint:color,wheels:['six','five','dish'].includes(raw.wheels)?raw.wheels:'six',ride:['stock','low','cruise'].includes(raw.ride)?raw.ride:'stock',kit:['stock','street','drift'].includes(raw.kit)?raw.kit:'street',exhaust:['mellow','sport','track'].includes(raw.exhaust)?raw.exhaust:'sport',interior:['classic','red','tan'].includes(raw.interior)?raw.interior:'classic',decal:['works','none','postcard'].includes(raw.decal)?raw.decal:'works',spoiler:['none','factory','ducktail','gt'].includes(raw.spoiler)?raw.spoiler:raw.kit==='drift'?'ducktail':'factory',frontBumper:['factory','street','drift'].includes(raw.frontBumper)?raw.frontBumper:'factory',rearBumper:['factory','street','drift'].includes(raw.rearBumper)?raw.rearBumper:'factory',smokeColor:/^#[0-9a-f]{6}$/i.test(raw.smokeColor)?raw.smokeColor:'#dce0e5'};b.careerStyle=careerRewardAvailable(raw.careerStyle)?raw.careerStyle:'none';if(b.decal==='postcard'&&Object.keys(cruiseProgress.visited).length<3)b.decal='works';return b;}
+function normalizedBuild(raw={},color='#dfe3e8'){const b={paint:/^#[0-9a-f]{6}$/i.test(raw.paint)?raw.paint:color,wheels:['six','five','dish'].includes(raw.wheels)?raw.wheels:'five',ride:['stock','low','cruise'].includes(raw.ride)?raw.ride:'stock',kit:['stock','street','drift'].includes(raw.kit)?raw.kit:'street',exhaust:['mellow','sport','track'].includes(raw.exhaust)?raw.exhaust:'sport',interior:['classic','red','tan'].includes(raw.interior)?raw.interior:'classic',decal:['works','none','postcard'].includes(raw.decal)?raw.decal:'works',spoiler:['none','factory','ducktail','gt'].includes(raw.spoiler)?raw.spoiler:raw.kit==='drift'?'ducktail':'factory',frontBumper:['factory','street','drift'].includes(raw.frontBumper)?raw.frontBumper:'factory',rearBumper:['factory','street','drift'].includes(raw.rearBumper)?raw.rearBumper:'factory',smokeColor:/^#[0-9a-f]{6}$/i.test(raw.smokeColor)?raw.smokeColor:'#dce0e5'};b.careerStyle=careerRewardAvailable(raw.careerStyle)?raw.careerStyle:'none';if(b.decal==='postcard'&&Object.keys(cruiseProgress.visited).length<3)b.decal='works';return b;}
 function savePlayerBuild(c){personalBuilds[c.playerSlot]={...c.build};vehicleBuilds[c.playerSlot+'-'+c.carId]={...c.build};try{localStorage.setItem('dd-vehicle-builds-v5',JSON.stringify(vehicleBuilds));}catch(e){console.warn(e);}try{localStorage.setItem('dd-builds-v4',JSON.stringify(personalBuilds));}catch(e){console.warn(e);}}
 function updateBuildBanner(c){if(!c.build||!c.jdm)return;const mesh=c.jdm.children.find(m=>m.material?.map);if(!mesh)return;const style=c.build.decal+'-'+c.build.careerStyle;if(c.bannerStyle===style)return;c.bannerStyle=style;mesh.visible=c.build.decal!=='none';if(!mesh.visible)return;
   const canvas=document.createElement('canvas');canvas.width=512;canvas.height=64;const g=canvas.getContext('2d');g.fillStyle='#13202a';g.fillRect(0,0,512,64);g.fillStyle=c.build.decal==='postcard'?'#e5c989':'#e8e8d7';g.font='bold 29px monospace';g.textAlign='center';g.fillText(({valley:'VALLEY WORKS',coast:'AFTER HOURS',caldera:'KUROHANA CLUB'}[c.build.careerStyle])||(c.build.decal==='postcard'?'SHIOSAI CRUISE CLUB':'湘南  /  DD WORKS'),256,43);const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;mesh.material.map?.dispose();mesh.material.map=texture;mesh.material.needsUpdate=true;}
 function applyPlayerBuild(c,raw,save=true){const build=normalizedBuild({...c.build,...raw},'#'+c.paint.color.getHexString());c.build=build;c.paint.color.set(build.paint);c.body.position.y=clamp(c.susp,-.09,.06)+RIDE_HEIGHTS[build.ride];const colors={six:0xa58951,five:0xc3c8cb,dish:0x6b7276};
-  for(const wheel of c.wheels){wheel.rimMaterial.color.setHex(colors[build.wheels]);wheel.spokeMesh.geometry=wheelGeometry(build.wheels);}
+  for(const wheel of c.wheels){wheel.rimMaterial.color.setHex(colors[build.wheels]);
+    if(wheel.approved){
+      for(const mesh of wheel.factorySpokes)mesh.visible=build.wheels==='five';
+      if(build.wheels!=='five'&&!wheel.customSpokes){wheel.customSpokes=new THREE.Mesh(wheelGeometry(build.wheels),wheel.rimMaterial);wheel.customSpokes.position.z=Math.sign(wheel.pivot.position.z)*.08;wheel.spokeMesh.add(wheel.customSpokes);}
+      if(wheel.customSpokes){wheel.customSpokes.visible=build.wheels!=='five';wheel.customSpokes.geometry=wheelGeometry(build.wheels);}
+    }else wheel.spokeMesh.geometry=wheelGeometry(build.wheels);
+  }
   if(c.seatMaterial)c.seatMaterial.color.setHex({classic:0x1c242b,red:0x842e31,tan:0x8b7660}[build.interior]);updateCareerLivery(c);updateBuildBanner(c);updateCarDetail(c);if(c.aero)c.aero.visible=!split&&soloQuality.tier===1&&build.kit==='drift';
   if(c===car1){P.color=build.paint;const input=document.getElementById('tcolor');input.value=P.color;}if(save)savePlayerBuild(c);return build;}
 function initBodyOptions(c,dark){
@@ -10150,9 +10307,10 @@ function updateBodyOptions(c){
     for(const [name,group] of Object.entries(options))group.visible=split?category==='spoiler'&&name==='factory':c.build[category]===name;
 }
 function initCruiseCar(c){
-  c.playerSlot=Math.min(c.playerSlot??cars.length,1);c.seatMaterial=new THREE.MeshStandardMaterial({color:0x1c242b,roughness:.9});const dark=new THREE.MeshStandardMaterial({color:0x151d25,roughness:.8});c.interior=new THREE.Group();
+  c.playerSlot=Math.min(c.playerSlot??cars.length,1);const dark=new THREE.MeshStandardMaterial({color:0x151d25,roughness:.8});if(c.root.userData.approvedSilvia){c.seatMaterial=c.root.userData.seatMaterial;c.interior=c.root.userData.approvedInterior;}else{c.seatMaterial=new THREE.MeshStandardMaterial({color:0x1c242b,roughness:.9});c.interior=new THREE.Group();
   for(const z of [-.32,.32]){const base=new THREE.Mesh(new THREE.BoxGeometry(.48,.11,.37),c.seatMaterial);base.position.set(-.30,.60,z);const back=new THREE.Mesh(new THREE.BoxGeometry(.11,.43,.34),c.seatMaterial);back.position.set(-.53,.83,z);c.interior.add(base,back);}
   const dash=new THREE.Mesh(new THREE.BoxGeometry(.25,.16,1.24),dark);dash.position.set(.45,.83,0);c.interior.add(dash);const wheel=new THREE.Mesh(new THREE.TorusGeometry(.105,.018,6,16).rotateY(Math.PI/2),dark);wheel.position.set(.25,.87,.33);c.interior.add(wheel);const console=new THREE.Mesh(new THREE.BoxGeometry(.4,.15,.13),dark);console.position.set(-.05,.60,0);c.interior.add(console);c.body.add(c.interior);
+}
   c.aero=new THREE.Group();for(const side of [-1,1]){const skirt=new THREE.Mesh(new THREE.BoxGeometry(2.02,.04,.14),dark);skirt.position.set(-.10,.18,side*.91);c.aero.add(skirt);}c.body.add(c.aero);initBodyOptions(c,dark);
   c.lights=new THREE.Group();c.headlights=[];for(const side of [-1,1]){const lamp=new THREE.SpotLight(0xffe7c3,0,65,.36,.65,2);lamp.position.set(2.10,.62,side*.59);const target=new THREE.Object3D();target.position.set(30,.07,side*.6);c.lights.add(lamp,target);lamp.target=target;lamp.castShadow=false;c.headlights.push(lamp);}
   const beamCanvas=document.createElement('canvas');beamCanvas.width=64;beamCanvas.height=128;const g=beamCanvas.getContext('2d'),grad=g.createLinearGradient(0,0,0,128);grad.addColorStop(0,'rgba(255,238,195,.25)');grad.addColorStop(1,'rgba(255,238,195,0)');g.fillStyle=grad;g.beginPath();g.moveTo(27,0);g.lineTo(37,0);g.lineTo(64,128);g.lineTo(0,128);g.closePath();g.fill();const texture=new THREE.CanvasTexture(beamCanvas),material=new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,toneMapped:false});c.beams=[];
@@ -10297,7 +10455,7 @@ function carThumbnail(id,color){
 function saveGarage(){try{localStorage.setItem('dd-garage-v5',JSON.stringify({ids:garage.ids,names:garage.names}));}catch(e){console.warn(e);}}
 function disposeVehicle(c){
  const geometries=new Set(),materials=new Set(),textures=new Set(),shared=new Set([flameGeometry,...wheelStyleGeometry.values()]);
- c.root.traverse(o=>{if(o.geometry&&!o.isSprite&&!shared.has(o.geometry))geometries.add(o.geometry);if(o.material&&o.material!==flameOuter&&o.material!==flameInner){materials.add(o.material);if(o.material.map)textures.add(o.material.map);}});
+ c.root.traverse(o=>{if(o.geometry&&!o.isSprite&&!o.geometry.userData.sharedVehicleGeometry&&!shared.has(o.geometry))geometries.add(o.geometry);if(o.material&&o.material!==flameOuter&&o.material!==flameInner){materials.add(o.material);if(o.material.map)textures.add(o.material.map);}});
  scene.remove(c.root);for(const g of geometries)g.dispose();for(const t of textures)t.dispose();for(const m of materials)m.dispose();
 }
 function replaceVehicle(slot,id){
@@ -10654,6 +10812,7 @@ document.getElementById('menu-resume').onclick=()=>startMode(split);
 
 // ================= boot =================
 const startupStages=[
+  ['Loading the approved Silvia…',preloadSilvia],
   ['Shaping the road network…',()=>{buildRoads();buildCruiseLots();buildNavigation();}],
   ['Building coast, terraces and mountains…',buildTerrain],
   ['Laying the expressway and mountain passes…',buildRoad],
@@ -10671,7 +10830,7 @@ function runStartupStage(index=0){
     const result=build(),finish=()=>{if(index+1<startupStages.length)runStartupStage(index+1);};
     if(result&&typeof result.next==='function'){
       const next=()=>{try{const part=result.next();if(part.done)finish();else{ovsub.textContent=`${index+1} / ${startupStages.length} · ${part.value}%`;window.setStartupProgress?.(index,startupStages.length,part.value);setTimeout(next,0);}}catch(error){window.reportStartupError(error);}};next();
-    }else finish();
+    }else if(result&&typeof result.then==='function')result.then(finish).catch(error=>window.reportStartupError(error));else finish();
   }catch(error){window.reportStartupError(error);}},20);
 }
 setTimeout(()=>runStartupStage(),50);

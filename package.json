@@ -11,7 +11,10 @@
     "desktop:mac": "npm run desktop:prepare && electron-builder --mac --publish never",
     "desktop:win": "npm run desktop:prepare && electron-builder --win --x64 --publish never",
     "desktop:check": "node --test tests/desktop.test.mjs",
-    "ai:qualify": "node tests/qualify-pro.mjs"
+    "ai:qualify": "node tests/qualify-pro.mjs",
+    "engine:build": "node tools/engine-runtime/build.mjs",
+    "desktop:smoke": "electron --no-sandbox --ozone-platform=headless --disable-dev-shm-usage tests/desktop-smoke.cjs",
+    "game:bundle": "node scripts/bundle-game-modules.mjs"
   },
   "devDependencies": {
     "clipper-lib": "^6.4.2",
@@ -20,7 +23,7 @@
     "sharp": "0.34.5",
     "three": "0.160.0"
   },
-  "version": "6.4.0",
+  "version": "6.5.0",
   "description": "Drift Drive \u2014 Cruise Life, a Japanese-inspired arcade driving game",
   "author": {
     "name": "Marvyn De Sousa"

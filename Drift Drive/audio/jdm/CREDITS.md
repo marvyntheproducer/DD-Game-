@@ -1,3 +1,13 @@
+# V6.5 live physical engine audio
+
+Engine sound now defaults to a live WebAssembly integration of Ange Yaghi / AngeTheGreat's MIT Engine Simulator combustion and gas-flow code. It runs in a dedicated worker; an AudioWorklet plays bounded PCM blocks. Source and adaptations are in `tools/engine-runtime/`. Original: https://github.com/ange-yaghi/engine-sim ; portable source checkpoint: https://github.com/Talhasarac/engine-sim-sound-exporter/tree/a548360a33c6ddcc28265ac08b71b8a5f514ed3c .
+
+The inline-six uses the existing JZ2Tour configuration's bore, stroke, firing order, cams, port flow and exhaust dimensions. Game RPM drives analytic crank/piston kinematics; throttle, load, boost and ignition cuts drive the live pressure model. This is a simulated approximation, not a certified factory acoustic model or a microphone recording. The Community Edition distribution has no application source; its original open-source core is used here.
+
+The runtime excludes the original UI/renderer, scripting compiler, duplicate vehicle/transmission solver, dyno, Discord and video components. MIT notices are included in `engine-sim/LICENSE-engine-sim.txt`, `engine-sim/LICENSE-solver.txt` and `THIRD_PARTY_LICENSES.txt` in desktop bundles.
+
+Existing BOV and backfire are retained. Captured simulator loops below are a fallback for devices without Worker/AudioWorklet/WASM support or that cannot sustain the live audio budget.
+
 # V5.3 — 2JZ capture bank
 
 Only the 2JZ engine is shipped. Its 14 three-second clips are recordings of full Engine Simulator runs at seven held RPMs (900, 1500, 2300, 3300, 4500, 5800, 7200), each at 0% and 100% throttle. Capture PCM, measured RPM and source hashes are unchanged from V5.2. These are simulated JDM-inspired engine configurations, not recordings of physical factory cars.
