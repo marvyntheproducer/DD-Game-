@@ -9,6 +9,7 @@ directories:
 files:
   - desktop/main.cjs
   - desktop/assets.cjs
+  - desktop/session.cjs
   - desktop/assets/icon.png
   - .desktop/game/**/*
   - .desktop/manifest.json

@@ -46,8 +46,8 @@ export function createSilviaModel(color,{A=1.18,B=1.345,R=.32,detail=true}={}){
   for(let i=0;i<4;i++){
     const pivot=new THREE.Group(),spin=new THREE.Group(),spokeMesh=new THREE.Group(),front=i<2;
     // The visual track follows the approved arches. Physics track is unchanged.
-    pivot.position.set(front?A:-B,R,i%2===0?-.79:.79);pivot.add(spin);spin.add(spokeMesh);root.add(pivot);
-    wheels.push({pivot,spin,front,rimMaterial:null,spokeMesh,approved:true});
+    pivot.position.set(front?A:-B,.337,i%2===0?-.79:.79);pivot.add(spin);spin.add(spokeMesh);root.add(pivot);
+    wheels.push({pivot,spin,front,rimMaterial:null,spokeMesh,approved:true,visualRadius:.337});
   }
   const plateAnchor=new THREE.Group();plateAnchor.position.set(2.291,.29,0);body.add(plateAnchor);
   const glassShell=new THREE.Group();body.add(glassShell);
@@ -71,7 +71,7 @@ export function createSilviaModel(color,{A=1.18,B=1.345,R=.32,detail=true}={}){
     for(const level of ['detail','laptop']){
       const item=templates.get(level).get(name);if(!item)throw new Error('Silvia LOD part missing: '+name);
       let matrix=transform;
-      if(wheel)matrix=new THREE.Matrix4().makeTranslation(-wheel.pivot.position.x,-R,-wheel.pivot.position.z).multiply(transform);
+      if(wheel)matrix=new THREE.Matrix4().makeTranslation(wheel.front?-1.30:1.22,-.335,-wheel.pivot.position.z).multiply(new THREE.Matrix4().makeScale(-1,1,-1));
       const key=[name,level,A,B,R].join(':');
       if(!derived.has(key)){
         const geometry=item.geometry.clone().applyMatrix4(matrix);
@@ -96,4 +96,13 @@ export function createSilviaModel(color,{A=1.18,B=1.345,R=.32,detail=true}={}){
   root.userData.approvedInterior=interior;root.userData.seatMaterial=materials.get('Cloth interior');
   root.userData.setDetail=on=>{for(const p of pieces){p.mesh.geometry=p.geometries[on?'detail':'laptop'];p.mesh.castShadow=on;}root.userData.detail=on;};
   return {root,body,wheels,paint,tailMat,headMat,windowShell:glassShell,factorySpoiler,frontPlate:plateAnchor,approvedInterior:interior};
+}
+
+// Visual suspension follows contact without adding road tilt a second time.
+export function updateSilviaWheel(w,targetY,steer,omega,dt){
+  const h=Math.max(0,Math.min(.1,Number.isFinite(dt)?dt:0)),rest=w.visualRadius;
+  const y=Math.max(rest-.055,Math.min(rest+.05,targetY));
+  w.pivot.position.y+=(y-w.pivot.position.y)*(1-Math.exp(-h*20));
+  if(w.front)w.pivot.rotation.y=steer;
+  w.spin.rotation.z=(w.spin.rotation.z-omega*h)%(2*Math.PI);
 }

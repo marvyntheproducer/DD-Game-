@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {installSilviaTemplates,createSilviaModel} from '../Drift Drive/silvia-model.js';
+import {installSilviaTemplates,createSilviaModel,updateSilviaWheel} from '../Drift Drive/silvia-model.js';
 const loader=new GLTFLoader(),models=[];
 for(const level of ['detail','laptop']){const bytes=await fs.readFile(new URL('../Drift Drive/models/silvia-'+level+'.glb',import.meta.url));models.push((await loader.parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'')).scene);}
 installSilviaTemplates(...models);
@@ -38,4 +38,30 @@ test('direct-file companion contains the exact laptop mesh instead of a differen
   const script=await fs.readFile(new URL('../Drift Drive/models/silvia-file.js',import.meta.url),'utf8');
   const encoded=JSON.parse(script.split('window.DD_SILVIA_FILE=')[1].trim().slice(0,-1));
   assert.deepEqual(Buffer.from(encoded,'base64'),await fs.readFile(new URL('../Drift Drive/models/silvia-laptop.glb',import.meta.url)));
+});
+
+
+test('Silvia tyres rotate concentrically instead of orbiting 15 mm around the axle',()=>{
+  const car=createSilviaModel('#ffffff');
+  for(const detail of [true,false]){
+    car.root.userData.setDetail(detail);
+    for(const w of car.wheels){
+      const tire=w.spin.children.find(m=>m.material?.name==='Tyre rubber');
+      assert.ok(tire);tire.geometry.computeBoundingBox();
+      const centre=tire.geometry.boundingBox.getCenter(new THREE.Vector3());
+      assert.ok(Math.hypot(centre.x,centre.y)<.0015,JSON.stringify(centre));
+      for(let i=0;i<24;i++){w.spin.rotation.z=i*Math.PI/12;car.root.updateMatrixWorld(true);const at=new THREE.Box3().setFromObject(tire).getCenter(new THREE.Vector3());
+        assert.ok(Math.abs(at.x-w.pivot.position.x)<.002);assert.ok(Math.abs(at.y-w.pivot.position.y)<.002);}
+    }
+  }
+});
+
+test('Silvia visual travel is damped and frame-rate independent with bounded spin angle',()=>{
+  const a=createSilviaModel('#ffffff'),b=createSilviaModel('#ffffff');
+  for(let i=0;i<60;i++)updateSilviaWheel(a.wheels[0],.392,.2,100,1/60);
+  for(let i=0;i<120;i++)updateSilviaWheel(b.wheels[0],.392,.2,100,1/120);
+  assert.ok(Math.abs(a.wheels[0].pivot.position.y-b.wheels[0].pivot.position.y)<1e-10);
+  assert.equal(a.wheels[0].pivot.rotation.y,.2);assert.ok(Math.abs(a.wheels[0].spin.rotation.z)<=2*Math.PI);
+  const w=a.wheels[1],before=w.pivot.position.y;updateSilviaWheel(w,.392,0,0,1/144);
+  assert.ok(w.pivot.position.y-before<.009);assert.ok(w.pivot.position.y>.337);
 });

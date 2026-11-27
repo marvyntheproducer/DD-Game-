@@ -21,6 +21,8 @@ public:
         const int samples = static_cast<int>(std::round(delay * audioFrequency));
         const int capacity = samples + 32;
 
+        // DD: quality changes resize the propagation history without leaking it.
+        m_history.destroy();
         m_history.initialize(capacity);
         m_latencySamples = samples;
     }

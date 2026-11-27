@@ -1,25 +1,11 @@
-# V6.5 live physical engine audio
+# Live physical engine audio
 
-Engine sound now defaults to a live WebAssembly integration of Ange Yaghi / AngeTheGreat's MIT Engine Simulator combustion and gas-flow code. It runs in a dedicated worker; an AudioWorklet plays bounded PCM blocks. Source and adaptations are in `tools/engine-runtime/`. Original: https://github.com/ange-yaghi/engine-sim ; portable source checkpoint: https://github.com/Talhasarac/engine-sim-sound-exporter/tree/a548360a33c6ddcc28265ac08b71b8a5f514ed3c .
+The only engine-sound source is the live WebAssembly integration of Ange Yaghi / AngeTheGreat's MIT Engine Simulator combustion and gas-flow code. No engine recording banks, loop player, oscillator replacement or sample fallback are shipped.
 
-The inline-six uses the existing JZ2Tour configuration's bore, stroke, firing order, cams, port flow and exhaust dimensions. Game RPM drives analytic crank/piston kinematics; throttle, load, boost and ignition cuts drive the live pressure model. This is a simulated approximation, not a certified factory acoustic model or a microphone recording. The Community Edition distribution has no application source; its original open-source core is used here.
+Source: https://github.com/ange-yaghi/engine-sim ; portable checkpoint: https://github.com/Talhasarac/engine-sim-sound-exporter/tree/a548360a33c6ddcc28265ac08b71b8a5f514ed3c . Adapted source and licences: tools/engine-runtime/ in the repository and engine-sim/ licence files in the desktop bundle.
 
-The runtime excludes the original UI/renderer, scripting compiler, duplicate vehicle/transmission solver, dyno, Discord and video components. MIT notices are included in `engine-sim/LICENSE-engine-sim.txt`, `engine-sim/LICENSE-solver.txt` and `THIRD_PARTY_LICENSES.txt` in desktop bundles.
+The inline-six configuration derives from JZ2Tour bore/stroke, firing order, cams, port flow and exhaust dimensions. Game RPM drives crank/piston kinematics. Throttle, load, boost and ignition cuts control combustion and gas pressure. This is a physical acoustic approximation rather than a certified factory model or microphone recording.
 
-Existing BOV and backfire are retained. Captured simulator loops below are a fallback for devices without Worker/AudioWorklet/WASM support or that cannot sustain the live audio budget.
+BOV is the existing filtered-noise release effect. Backfire remains the separately licensed MertStudio CarSoundSystem effect, with synchronized solo flames. These effects do not replace engine combustion audio. Their notices remain in sounds-LICENSE.txt and THIRD_PARTY_LICENSES.txt.
 
-# V5.3 — 2JZ capture bank
-
-Only the 2JZ engine is shipped. Its 14 three-second clips are recordings of full Engine Simulator runs at seven held RPMs (900, 1500, 2300, 3300, 4500, 5800, 7200), each at 0% and 100% throttle. Capture PCM, measured RPM and source hashes are unchanged from V5.2. These are simulated JDM-inspired engine configurations, not recordings of physical factory cars.
-
-Original simulator: AngeTheGreat / Ange Yaghi — https://github.com/ange-yaghi/engine-sim
-Headless exporter: Talhasarac — https://github.com/Talhasarac/engine-sim-sound-exporter
-Pinned exporter commit: a548360a33c6ddcc28265ac08b71b8a5f514ed3c
-License: MIT; full notice in ENGINE-SIM-LICENSE.txt. Configurations and Linux patches: tools/engine-sim-exporter/.
-
-Processing: DC/high-pass cleanup at 30 Hz, mono 32 kHz resampling, conservative headroom and Vorbis encoding. Decoded clips receive cached seam overlap/level matching. Runtime coloration adds a 0.94 pitch/rate factor, a +3.5 dB 240 Hz low shelf and a -3 dB 2.4 kHz high shelf. Independent captured load takes blend between nearby RPM anchors. The simulator does not run in-game.
-
-BOV: original Drift Drive filtered-noise whoosh, shaped by boost, throttle lift, envelope and cooldown; no third-party recording.
-Backfire: existing Mert Studio Car Sound System samples (MIT), unchanged; see sounds-LICENSE.txt. Their playback triggers and synchronized solo flame events remain.
-
-The raw 3000 RPM MP3 is a +6 dB source audition; the driving MP3 demonstrates runtime coloration and the BOV/backfire sound design. Other engine/rotary banks have been removed.
+The original simulator UI/renderer, parser, duplicate game vehicle solver, dyno, Discord/video and unrelated engines are excluded. On an error the live system reports it and retries; it never changes to a different engine-sound source.

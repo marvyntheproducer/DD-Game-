@@ -5,7 +5,7 @@ import {createHash} from 'node:crypto';
 const here=import.meta.dirname,root=path.resolve(here,'../..');
 const names=JSON.parse(await fs.readFile(path.join(here,'sources.json'),'utf8'));
 const out=path.join(root,'Drift Drive/engine-sim');await fs.mkdir(out,{recursive:true});
-const args=['-std=c++17','-O3','-DNDEBUG','-include',path.join(here,'compat.h'),'-I'+path.join(here,'vendor/include'),'-I'+path.join(here,'vendor/solver/include'),path.join(here,'runtime.cpp'),...names.map(n=>path.join(here,'vendor/src/'+n+'.cpp')),...['rigid_body','force_generator'].map(n=>path.join(here,'vendor/solver/src/'+n+'.cpp')),'-sMODULARIZE=1','-sEXPORT_ES6=1','-sENVIRONMENT=worker,node','-sFILESYSTEM=0','-sALLOW_MEMORY_GROWTH=0','-sINITIAL_MEMORY=33554432','-sEXPORTED_FUNCTIONS=["_dd_init","_dd_destroy","_dd_state","_dd_render","_dd_metric"]','-sEXPORTED_RUNTIME_METHODS=["HEAPF32"]','-o',path.join(out,'core.js')];
+const args=['-std=c++17','-O3','-DNDEBUG','-include',path.join(here,'compat.h'),'-I'+path.join(here,'vendor/include'),'-I'+path.join(here,'vendor/solver/include'),path.join(here,'runtime.cpp'),...names.map(n=>path.join(here,'vendor/src/'+n+'.cpp')),...['rigid_body','force_generator'].map(n=>path.join(here,'vendor/solver/src/'+n+'.cpp')),'-sMODULARIZE=1','-sEXPORT_ES6=1','-sENVIRONMENT=worker,node','-sFILESYSTEM=0','-sALLOW_MEMORY_GROWTH=0','-sINITIAL_MEMORY=33554432','-sEXPORTED_FUNCTIONS=["_dd_init","_dd_quality","_dd_destroy","_dd_state","_dd_render","_dd_metric"]','-sEXPORTED_RUNTIME_METHODS=["HEAPF32"]','-o',path.join(out,'core.js')];
 const result=spawnSync(process.env.EMXX||'em++',args,{stdio:'inherit'});
 if(result.error)throw result.error;if(result.status)process.exit(result.status);
 const files={};
