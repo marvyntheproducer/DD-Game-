@@ -1,2 +1,2 @@
-// Only the 2JZ capture bank is shipped.
-for(const key of Object.keys(window.ENGINE_SOUNDS))if(key!=='JZ2Tour')delete window.ENGINE_SOUNDS[key];
+// Engine selection metadata only. Engine audio comes exclusively from the live core.
+window.ENGINE_SOUNDS={JZ2Tour:{label:'2JZ · live Engine Simulator',live:true}};

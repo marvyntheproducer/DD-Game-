@@ -60,6 +60,12 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           # Ad-hoc local signing only; no signing certificates or secrets are used.
           CSC_FOR_PULL_REQUEST: 'true'
+      - name: Verify live engines from the packaged app
+        run: npx electron tests/desktop-smoke.cjs
+        env:
+          DD_SMOKE_PACKAGED: '1'
+          DD_SMOKE_RETRY: '1'
+          DD_SMOKE_LOW_POWER: '1'
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:

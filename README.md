@@ -539,6 +539,15 @@ The rival tracks a continuous racing line through the full checkpoint opening in
 
 The approved blueprint Silvia is now the playable Silvia, with separate steering/wheelspin pivots, stationary calipers, per-car paint, lights, factory spoiler and existing appearance options. Detail (119,034 triangles) and laptop/split-screen (53,117 triangles) meshes are derived from the approved editable model; the immutable source archive remains in `design/silvia-approved/`. Shared geometry avoids allocating another full mesh for every garage change. Other JDM cars retain their existing models.
 
-The 2JZ now runs Engine Simulator combustion, intake/exhaust gas flow and pressure-derived audio live in a dedicated WebAssembly worker. The game supplies crank speed and control state; the original simulator renderer, script compiler and duplicate vehicle solver are excluded. An AudioWorklet plays bounded per-player PCM queues, with the existing EQ, BOV, backfire and synchronized flames. A smooth fallback to simulator captures handles unsupported or overloaded audio devices.
+The 2JZ now runs Engine Simulator combustion, intake/exhaust gas flow and pressure-derived audio live in a dedicated WebAssembly worker. The game supplies crank speed and control state; the original simulator renderer, script compiler and duplicate vehicle solver are excluded. An AudioWorklet plays bounded per-player PCM queues, with the existing EQ, BOV, backfire and synchronized flames. V6.5.1 removes that initial recording fallback: the simulator is now the only engine source, with live retries on errors.
 
 All required runtime assets are bundled for offline Mac Intel, Apple Silicon and Windows builds. Build the core with Emscripten 4.0.20 using `npm run engine:build`; the compiled portable core is checked in, so ordinary desktop packaging does not need a C++ compiler. See `tools/engine-runtime/README.md` for provenance, scope and profiling. Run `npm test` and, on Linux, `npm run desktop:smoke` for the offline Electron integration check.
+
+
+## V6.5.1 — Recovering live audio and stable tyres
+
+Live audio now uses an explicit 44.1 kHz output, adapts physical simulation cost to older laptops, grows its bounded queue after underruns and retries startup/runtime failures. All engine recording banks, loop playback and fallback code are removed; a brief audio stall adapts the live core, and failures retry it. The status exposes the actual failure and offers a retry. Existing BOV/backfire remain.
+
+The approved Silvia's tyre meshes are centred on their actual axle (removing a 15 mm eccentric offset), wheel spin retains circular geometry, and visual suspension samples the correct side without applying road tilt twice. Travel is damped, with bounded spin angles. These changes do not alter tyre/contact physics or the V4 camera.
+
+Desktop CI tests live audio directly from each packaged app archive on Windows, Intel Mac and Apple Silicon, including a failed-start recovery and low-power profile.

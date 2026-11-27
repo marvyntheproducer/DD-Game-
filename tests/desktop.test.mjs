@@ -34,8 +34,8 @@ test('desktop CSP permits the exact inline game scripts without eval or external
  for(const m of html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g))if(!m[1].includes('src='))assert.ok(scriptPolicy.includes("'sha256-"+createHash('sha256').update(m[2]).digest('base64')+"'"));
 });
 
-test('asset handler serves offline modules and recorded audio but cannot leave the game root',async()=>{
- for(const [url,type] of [['drift://game/','text/html'],['drift://game/engine-sim/core.wasm','application/wasm'],['drift://game/models/silvia-detail.glb','model/gltf-binary'],['drift://game/vendor/three.module.js','text/javascript'],['drift://game/audio/jdm/jz2tour-r3300_on.ogg','audio/ogg'],['drift://game/audio/jdm/previews/2jz-3000rpm.mp3','audio/mpeg']]){
+test('asset handler serves offline modules, GLB and WASM but cannot leave the game root',async()=>{
+ for(const [url,type] of [['drift://game/','text/html'],['drift://game/engine-sim/core.wasm','application/wasm'],['drift://game/models/silvia-detail.glb','model/gltf-binary'],['drift://game/vendor/three.module.js','text/javascript']]){
   const response=await assetResponse(game,{url,method:'GET'});assert.equal(response.status,200);assert.ok(response.headers.get('content-type').startsWith(type));assert.ok((await response.arrayBuffer()).byteLength>100);
  }
  const head=await assetResponse(game,{url:'drift://game/index.html',method:'HEAD'});assert.equal(head.status,200);assert.equal(await head.text(),'');
@@ -49,7 +49,7 @@ test('asset handler serves offline modules and recorded audio but cannot leave t
 test('desktop window and network settings preserve sandboxing and stable storage',async()=>{
  const main=await fs.readFile(path.join(root,'desktop/main.cjs'),'utf8');
  assert.match(main,/nodeIntegration:false/);assert.match(main,/contextIsolation:true/);assert.match(main,/sandbox:true/);assert.match(main,/webSecurity:true/);
- assert.match(main,/setWindowOpenHandler/);assert.match(main,/onBeforeRequest/);assert.match(main,/Drift Drive/);
+ assert.match(main,/setWindowOpenHandler/);assert.match(main,/installGameSession/);assert.match(main,/Drift Drive/);
  assert.deepEqual(safeBounds({width:10,height:99999,maximized:'true'}),{width:960,height:2160,maximized:false});
  assert.deepEqual(safeBounds({width:Infinity,height:NaN,maximized:true}),{width:1280,height:800,maximized:true});
 });
@@ -77,7 +77,7 @@ test('first desktop launch creates its save profile before asking Electron to us
  }};
  try{
   const source=await fs.readFile(path.join(root,'desktop/main.cjs'),'utf8');
-  vm.runInNewContext(source,{require:name=>name==='electron'?electron:name==='./assets.cjs'?require('../desktop/assets.cjs'):require(name),__dirname:path.join(root,'desktop'),console,process});
+  vm.runInNewContext(source,{require:name=>name==='electron'?electron:name==='./assets.cjs'?require('../desktop/assets.cjs'):name==='./session.cjs'?require('../desktop/session.cjs'):require(name),__dirname:path.join(root,'desktop'),console,process});
   assert.equal(selected,path.join(temporary,'Drift Drive'));assert.ok((await fs.stat(selected)).isDirectory());
  }finally{await fs.rm(temporary,{recursive:true,force:true});}
 });

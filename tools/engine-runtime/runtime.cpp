@@ -27,6 +27,7 @@ struct LiveEngine {
     Function inLobe,outLobe,inFlow,outFlow,timing,turbulence,flame;
     Camshaft inCam,outCam; StandardValvetrain valves;
     DelayFilter delay[6]; LowPassFilter dc,low; LevelingFilter level;
+    double hz=16000,dt=1/16000.0;int quality=0;
     double angle=0,rpm=950,targetRpm=950,targetThrottle=0,targetBoost=0,targetLoad=0;
     double throttleValue=0,boost=0,clock=0,nextTick=0,last=0,current=0,peakPressure=0,burned=0;
     int fuelCut=0; unsigned long ticks=0,ignitions=0,faults=0;
@@ -34,7 +35,7 @@ struct LiveEngine {
     LiveEngine(){
         DirectThrottleLinkage::Parameters tp{};tp.gamma=1;throttle.initialize(tp);
         Engine::Parameters ep{};ep.name="DD live 2JZ I6";ep.cylinderBanks=1;ep.cylinderCount=6;ep.crankshaftCount=1;ep.exhaustSystemCount=2;ep.intakeCount=1;ep.throttle=&throttle;
-        ep.redline=units::rpm(10000);ep.initialSimulationFrequency=Hz;engine.initialize(ep);
+        ep.redline=units::rpm(10000);ep.initialSimulationFrequency=hz;engine.initialize(ep);
         auto crank=engine.getCrankshaft(0);
         Crankshaft::Parameters cp{};cp.mass=15;cp.flywheelMass=10;cp.momentOfInertia=.3;cp.crankThrow=.043;cp.rodJournals=6;cp.tdc=Pi/2;crank->initialize(cp);
         for(int i=0;i<6;i++)crank->setRodJournalAngle(i,Phases[i]*Pi/180);
@@ -65,12 +66,19 @@ struct LiveEngine {
         for(int i=0;i<6;i++){
             auto ch=engine.getChamber(i);CombustionChamber::Parameters cc{};cc.Piston=engine.getPiston(i);cc.Head=head;cc.Fuel=engine.getFuel();cc.MeanPistonSpeedToTurbulence=&turbulence;cc.CrankcasePressure=Atm;ch->initialize(cc);
             GasSystem::Mix mix;mix.p_fuel=.02;mix.p_o2=.245;mix.p_inert=.735;ch->m_system.initialize(Atm,ch->getVolume(),298.15,mix);
-            delay[i].initialize((1.016+head->getHeaderPrimaryLength(i))/343,Hz);
+            delay[i].initialize((1.016+head->getHeaderPrimaryLength(i))/343,hz);
         }
         engine.getIgnitionModule()->m_enabled=true;engine.getIgnitionModule()->reset();
-        dc.m_dt=Dt;dc.setCutoffFrequency(12);low.m_dt=Dt;low.setCutoffFrequency(6500);level.p_target=.22;level.p_maxLevel=.0002;level.p_minLevel=0;
+        dc.m_dt=dt;dc.setCutoffFrequency(12);low.m_dt=dt;low.setCutoffFrequency(6500);level.p_target=.22;level.p_maxLevel=.0002;level.p_minLevel=0;
     }
     ~LiveEngine(){engine.destroy();inCam.destroy();outCam.destroy();for(auto f:{&inLobe,&outLobe,&inFlow,&outFlow,&timing,&turbulence,&flame})f->destroy();}
+    void setQuality(int tier){
+        const int next=std::clamp(tier,0,2);if(next==quality)return;quality=next;
+        hz=quality==0?16000:quality==1?12000:8000;dt=1/hz;
+        dc.m_dt=dt;low.m_dt=dt;low.setCutoffFrequency(std::min(6500.0,hz*.42));
+        for(int i=0;i<6;i++)delay[i].initialize((1.016+engine.getHead(0)->getHeaderPrimaryLength(i))/343,hz);
+        nextTick=clock;last=current;
+    }
     void positionPistons(){
         auto crank=engine.getCrankshaft(0);crank->m_body.theta=Pi/2-angle;crank->m_body.v_theta=-rpm*2*Pi/60;
         for(int i=0;i<6;i++){
@@ -79,14 +87,14 @@ struct LiveEngine {
         }
     }
     double tick(){
-        rpm+=(targetRpm-rpm)*(1-std::exp(-Dt*24));throttleValue+=(targetThrottle-throttleValue)*(1-std::exp(-Dt*35));boost+=(targetBoost-boost)*(1-std::exp(-Dt*12));
-        angle=std::fmod(angle+rpm*2*Pi/60*Dt,4*Pi);positionPistons();
+        rpm+=(targetRpm-rpm)*(1-std::exp(-dt*24));throttleValue+=(targetThrottle-throttleValue)*(1-std::exp(-dt*35));boost+=(targetBoost-boost)*(1-std::exp(-dt*12));
+        angle=std::fmod(angle+rpm*2*Pi/60*dt,4*Pi);positionPistons();
         auto intake=engine.getIntake(0);intake->m_throttle=1-(.025+.975*throttleValue);intake->supplyPressure=Atm+boost*6894.757*(.25+.75*targetLoad);
-        auto ignition=engine.getIgnitionModule();ignition->m_enabled=!fuelCut;ignition->update(Dt);
-        for(int i=0;i<6;i++){auto ch=engine.getChamber(i);ch->update(Dt);if(ignition->getIgnitionEvent(i)){ch->ignite();if(ch->isLit())ignitions++;}}
+        auto ignition=engine.getIgnitionModule();ignition->m_enabled=!fuelCut;ignition->update(dt);
+        for(int i=0;i<6;i++){auto ch=engine.getChamber(i);ch->update(dt);if(ignition->getIgnitionEvent(i)){ch->ignite();if(ch->isLit())ignitions++;}}
         ignition->resetIgnitionEvents();
         // Same gas-flow/combustion equations as upstream, with two fluid substeps.
-        for(int sub=0;sub<2;sub++){intake->process(Dt/2);for(int i=0;i<2;i++)engine.getExhaustSystem(i)->process(Dt/2);for(int i=0;i<6;i++)engine.getChamber(i)->flow(Dt/2);}
+        for(int sub=0;sub<2;sub++){intake->process(dt/2);for(int i=0;i<2;i++)engine.getExhaustSystem(i)->process(dt/2);for(int i=0;i<6;i++)engine.getChamber(i)->flow(dt/2);}
         double signal=0;
         for(int i=0;i<6;i++){
             auto ch=engine.getChamber(i);auto &gas=ch->m_exhaustRunnerAndPrimary;
@@ -104,8 +112,8 @@ struct LiveEngine {
     void render(int count,double sampleRate){
         const double outDt=1/sampleRate;
         for(int i=0;i<count;i++){
-            while(nextTick<=clock){last=current;current=tick();nextTick+=Dt;}
-            const double f=bounded((clock-(nextTick-Dt))/Dt,0,1);
+            while(nextTick<=clock){last=current;current=tick();nextTick+=dt;}
+            const double f=bounded((clock-(nextTick-dt))/dt,0,1);
             output[i]=static_cast<float>(std::clamp(last+(current-last)*f,-.9,.9));clock+=outDt;
         }
     }
@@ -114,8 +122,9 @@ std::unique_ptr<LiveEngine> engines[2];
 }
 extern "C" {
 int dd_init(int slot){if(slot<0||slot>1)return 0;if(!engines[slot])engines[slot]=std::make_unique<LiveEngine>();return 1;}
+int dd_quality(int slot,int tier){if(slot<0||slot>1||!engines[slot])return -1;engines[slot]->setQuality(tier);return engines[slot]->quality;}
 void dd_destroy(int slot){if(slot>=0&&slot<2)engines[slot].reset();}
 void dd_state(int slot,double rpm,double throttle,double load,double boost,int cut){if(slot<0||slot>1||!engines[slot])return;auto &e=*engines[slot];e.targetRpm=bounded(rpm,650,10000);e.targetThrottle=bounded(throttle,0,1);e.targetLoad=bounded(load,0,1);e.targetBoost=bounded(boost,0,30)*e.targetThrottle;e.fuelCut=cut!=0;}
 float *dd_render(int slot,int frames,double rate){if(slot<0||slot>1||!engines[slot]||frames<0||frames>Block||!std::isfinite(rate)||rate<8000||rate>96000)return nullptr;engines[slot]->render(frames,rate);return engines[slot]->output;}
-double dd_metric(int slot,int metric){if(slot<0||slot>1||!engines[slot])return 0;auto &e=*engines[slot];switch(metric){case 0:return e.rpm;case 1:return e.ticks;case 2:return e.ignitions;case 3:return e.burned;case 4:return e.peakPressure;case 5:return e.faults;}return 0;}
+double dd_metric(int slot,int metric){if(slot<0||slot>1||!engines[slot])return 0;auto &e=*engines[slot];switch(metric){case 0:return e.rpm;case 1:return e.ticks;case 2:return e.ignitions;case 3:return e.burned;case 4:return e.peakPressure;case 5:return e.faults;case 6:return e.hz;}return 0;}
 }

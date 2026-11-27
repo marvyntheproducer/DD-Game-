@@ -2,6 +2,7 @@ const {app,BrowserWindow,Menu,protocol,session,dialog,shell}=require('electron')
 const path=require('node:path');
 const fs=require('node:fs');
 const {assetResponse,safeBounds}=require('./assets.cjs');
+const {installGameSession}=require('./session.cjs');
 const GAME='drift://game/index.html';
 protocol.registerSchemesAsPrivileged([{scheme:'drift',privileges:{standard:true,secure:true,supportFetchAPI:true,stream:true}}]);
 app.setName('Drift Drive');
@@ -21,7 +22,7 @@ function installMenu(){
   {label:'Game',submenu:[{label:'Controls & shortcuts',click:showControls},{type:'separator'},...(process.platform==='darwin'?[]:[{role:'quit'}])]},
   {label:'Edit',submenu:[{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'}]},
   {label:'View',submenu:view},{role:'windowMenu'},
-  {label:'Help',submenu:[{label:'Controls & shortcuts',click:showControls},{label:'Open saved-data folder',click:()=>shell.openPath(app.getPath('userData'))},{label:'About Drift Drive',click:()=>dialog.showMessageBox(win,{type:'info',title:'About Drift Drive',message:'Drift Drive',detail:'Desktop '+app.getVersion()+' · After Hours V6.5\nCreated by Marvyn De Sousa\nFictional Japanese roads. Approved Silvia blueprint model and original vehicle art.\nAudio and open-source credits are included with the game.'})}]}
+  {label:'Help',submenu:[{label:'Controls & shortcuts',click:showControls},{label:'Open saved-data folder',click:()=>shell.openPath(app.getPath('userData'))},{label:'About Drift Drive',click:()=>dialog.showMessageBox(win,{type:'info',title:'About Drift Drive',message:'Drift Drive',detail:'Desktop '+app.getVersion()+' · After Hours V6.5.1\nCreated by Marvyn De Sousa\nFictional Japanese roads. Approved Silvia blueprint model and original vehicle art.\nAudio and open-source credits are included with the game.'})}]}
  ];
  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
@@ -39,11 +40,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
  app.on('second-instance',()=>{if(win){if(win.isMinimized())win.restore();win.show();win.focus();}});
  app.whenReady().then(()=>{
   protocol.handle('drift',request=>assetResponse(path.join(app.getAppPath(),'.desktop/game'),request));
-  session.defaultSession.setPermissionRequestHandler((_wc,_permission,callback)=>callback(false));
-  session.defaultSession.setPermissionCheckHandler(()=>false);
-  session.defaultSession.webRequest.onBeforeRequest((details,callback)=>{
-   const url=new URL(details.url);callback({cancel:!(url.protocol==='drift:'&&url.host==='game'||url.protocol==='data:'||url.protocol==='blob:')});
-  });
+  installGameSession(session.defaultSession);
   session.defaultSession.on('will-download',(_event,item)=>{
    if(!item.getFilename().toLowerCase().endsWith('.png')){item.cancel();return;}
    item.setSaveDialogOptions({title:'Save your cruise photo',defaultPath:path.join(app.getPath('pictures'),path.basename(item.getFilename())),filters:[{name:'PNG photo',extensions:['png']}]});

@@ -48,6 +48,17 @@ test('live engine rejects oversized blocks and keeps malformed input finite thro
   }m._dd_destroy(0);
 });
 
+test('live quality reductions preserve combustion, RPM and finite audio without resetting the engine',async()=>{
+  const m=await Core();m._dd_init(0);m._dd_state(0,7200,1,1,20,0);render(m,0,24);
+  let ticks=m._dd_metric(0,1),fuel=m._dd_metric(0,3);
+  for(const [tier,hz]of [[1,12000],[2,8000],[0,16000]]){
+    assert.equal(m._dd_quality(0,tier),tier);assert.equal(m._dd_metric(0,6),hz);
+    const audio=render(m,0,32);assert.ok(audio.every(Number.isFinite));assert.ok(audio.some(x=>Math.abs(x)>.01));
+    assert.ok(m._dd_metric(0,1)>ticks);assert.ok(m._dd_metric(0,3)>fuel);assert.ok(Math.abs(m._dd_metric(0,0)-7200)<1);assert.equal(m._dd_metric(0,5),0);
+    ticks=m._dd_metric(0,1);fuel=m._dd_metric(0,3);
+  }m._dd_destroy(0);
+});
+
 test('audio worklet has bounded demand, isolated player channels and finite fade on starvation',async()=>{
   let Processor;
   const context={AudioWorkletProcessor:class{constructor(){this.port={postMessage:()=>{}};}},registerProcessor:(_name,p)=>{Processor=p;},sampleRate:44100,Float32Array,Number,Math};
