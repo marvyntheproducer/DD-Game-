@@ -1,0 +1,9 @@
+{
+  "name": "Silvia \u2014 blueprint study 01",
+  "mesh_objects": 43,
+  "triangles": 361154,
+  "length_m": 4.64,
+  "wheelbase_m": 2.52,
+  "reference": "User-supplied four-view blueprint. Scale is inferred; the drawing contains no dimensions.",
+  "status": "Standalone approval asset. Not integrated into Drift Drive."
+}
